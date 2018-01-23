@@ -1,7 +1,8 @@
 appnope==0.1.0
 bleach==2.1.2
--e git+git@github.com:azag0/caf.git@ba6a4aceadbafcccbe6145f425cb0df50d211a63#egg=caf&subdirectory=../../../../../Research/Projects/mbd-vv-simple/_caf
+-e _caf
 decorator==4.2.1
+docopt==0.6.2
 entrypoints==0.2.3
 html5lib==1.0.1
 ipykernel==4.8.0
@@ -28,6 +29,7 @@ parso==0.1.1
 pexpect==4.3.1
 pickleshare==0.7.4
 prompt-toolkit==1.0.15
+ptpython==0.41
 ptyprocess==0.5.2
 Pygments==2.2.0
 python-dateutil==2.6.1
