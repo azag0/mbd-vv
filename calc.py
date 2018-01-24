@@ -1,6 +1,6 @@
+import numpy as np
 import pandas as pd
-import csv
-from itertools import islice
+from itertools import islice, combinations
 import re
 
 from caflib.Configure import function_task
@@ -11,6 +11,7 @@ from caflib.Tools.aims import AimsTask
 from caflib.Caf import Caf
 
 ev = 27.2107
+
 
 default_tags = dict(
     xc='pbe',
@@ -28,60 +29,115 @@ default_tags = dict(
     sc_iter_limit=50,
     empty_states=10,
 )
+atom_tags = dict(
+    spin='collinear',
+    default_initial_moment='hund',
+    occupation_type=('gaussian', 1e-6),
+    occupation_acc=1e-10,
+)
+solids_tags = dict(
+    output='hirshfeld_new',
+    xml_file='results.xml',
+    override_illconditioning=True,
+)
 
-calc = Caf()
+calc = Caf(__file__)
+calc.paths = [
+    'solids/<>/*/*',
+    'solids/<>/*/*/<>',
+]
 
 
-@calc.register
-def run(ctx):
-    data = {'enes': [], 'vols': []}
+@calc.register('solids')
+def get_solids(ctx):
+    data = {'enes': [], 'vols': [], 'atoms': []}
     aims = AimsTask()
-    with open('data/solids.csv') as f:
-        reader = csv.DictReader(f, delimiter=';')
-        rows = list(reader)
-    for row in rows:
-        for k, v in row.items():
-            try:
-                row[k] = int(v)
-            except ValueError:
-                try:
-                    row[k] = float(v)
-                except ValueError:
-                    pass
-        label = row['label']
-        species = [
+    solid_data = pd.read_csv('data/solids.csv', sep=';')
+    atom_data = pd.read_csv('data/atoms.csv', sep=';') \
+        .set_index('symbol', drop=False)
+    all_atoms = set()
+    for solid in solid_data.itertuples():
+        if solid.label == 'Th':
+            continue
+        atoms = [
             ''.join(c) for c in
-            chunks(re.split(r'([A-Z])', label)[1:], 2)
+            chunks(re.split(r'([A-Z])', solid.label)[1:], 2)
         ]
-        geom = get_crystal(row['group'], row['lattice'], species)
-        tags = default_tags.copy()
-        n_kpts = row['k_grid']
+        all_atoms.update(atoms)
+        tags = {**default_tags, **solids_tags}
+        n_kpts = solid.k_grid
         tags['k_grid'] = (n_kpts, n_kpts, n_kpts)
-        if row['default_initial_moment']:
+        if not np.isnan(solid.default_initial_moment):
             tags['spin'] = 'collinear'
-            tags['default_initial_moment'] = row['default_initial_moment']
-        if row['occupation_type']:
-            tags['occupation_type'] = ('gaussian', row['occupation_type'])
-        if row['charge_mix_param']:
-            tags['charge_mix_param'] = row['charge_mix_param']
-        tags['dry_run'] = ()
-        dft = ctx(
-            features=[aims],
-            geom=geom,
-            aims='aims.master',
-            basis='tight',
-            tags=tags,
-            label=label,
-        )
-        calc = get_energy(dft.outputs['run.out'], label=f'{label}/energy', ctx=ctx)
-        if calc.finished:
-            data['enes'].append((label, calc.result/ev))
-        calc = get_volumes(dft.outputs['run.out'], label=f'{label}/volumes', ctx=ctx)
-        if calc.finished:
-            for i, vol in enumerate(calc.result):
-                data['vols'].append((label, i, vol))
-    data['enes'] = pd.DataFrame(data['enes'], columns='label ene'.split())
-    data['vols'] = pd.DataFrame(data['vols'], columns='label i vol'.split())
+            tags['default_initial_moment'] = solid.default_initial_moment
+        if not np.isnan(solid.occupation_type):
+            tags['occupation_type'] = ('gaussian', solid.occupation_type)
+        if not np.isnan(solid.charge_mix_param):
+            tags['charge_mix_param'] = solid.charge_mix_param
+        for scale in np.linspace(0.97, 1.03, 7):
+            lattice = solid.lattice_pbe if not np.isnan(solid.lattice_pbe) else solid.lattice
+            lattice *= scale
+            geom = get_crystal(solid.group, lattice, atoms)
+            label = f'crystals/{solid.label}/{scale}'
+            dft = ctx(
+                features=[aims],
+                geom=geom,
+                aims='aims.master',
+                basis='tight',
+                tags=tags,
+                label=label,
+            )
+            calc = get_energy(
+                dft.outputs['run.out'],
+                label=f'{label}/energy',
+                ctx=ctx
+            )
+            if calc.finished:
+                data['enes'].append((label, scale, calc.result/ev))
+            calc = get_volumes(
+                dft.outputs['run.out'],
+                label=f'{label}/volumes',
+                ctx=ctx
+            )
+            if calc.finished:
+                for i, vol in enumerate(calc.result):
+                    data['vols'].append((label, scale, i, vol))
+    data['enes'] = pd.DataFrame(data['enes'], columns='label scale ene'.split())
+    data['vols'] = pd.DataFrame(data['vols'], columns='label scale i vol'.split())
+    for species in all_atoms:
+        atom = atom_data.loc[species]
+        conf = atom.configuration
+        while conf[0] == '[':
+            conf = atom_data.loc[conf[1:3]].configuration + ',' + conf[4:]
+        geom = geomlib.Molecule([Atom(atom.symbol, (0, 0, 0))])
+        for conf, force_occ_tag in get_force_occs(conf.split(',')).items():
+            label = f'atoms/{atom.symbol}/{conf}'
+            tags = {
+                **default_tags,
+                **atom_tags,
+                'force_occupation_basis': force_occ_tag
+            }
+            dft = ctx(
+                features=[aims],
+                geom=geom,
+                aims='aims.master',
+                basis='tight',
+                tags=tags,
+                label=label,
+            )
+            calc = get_energy(
+                dft.outputs['run.out'], label=f'{label}/energy', ctx=ctx
+            )
+            data['atoms'].append((
+                atom.Z,
+                atom.symbol,
+                atom.configuration,
+                conf,
+                calc.result/ev if calc.finished else None
+            ))
+    data['atoms'] = pd \
+        .DataFrame(data['atoms'], columns='Z atom full_conf conf ene'.split()) \
+        .set_index('Z atom full_conf conf'.split())
     return data
 
 
@@ -108,6 +164,41 @@ def get_volumes(output):
                 hirsh = float(line.split()[-1])
                 ratios.append(hirsh/free)
     return ratios
+
+
+def get_force_occs(conf):
+    orb = 'spdf'
+    shells = [
+        (int(shell[0]), orb.index(shell[1]), int(shell[2:] or 1))
+        for shell in conf
+    ]
+    nmaxocc = sum(2*l+1 for n, l, occ in shells)
+    spin_shells = []
+    for n, l, occ in shells:
+        for spin in (1, 2):
+            spin_occ = min(occ, 2*l+1)
+            occ -= spin_occ
+            spin_shells.append((n, l, spin, spin_occ))
+            if occ == 0:
+                break
+    force_occs = []
+    unfilled = []
+    for i_shell, (n, l, spin, occ) in enumerate(spin_shells):
+        if occ < 2*l+1:
+            unfilled.append(i_shell)
+            continue
+        for m in range(-l, l+1):
+            force_occs.append((1, spin, 'atomic', n, l, m, 1, nmaxocc))
+    assert len(unfilled) <= 1
+    if len(unfilled) == 0:
+        return {'-': force_occs}
+    n, l, spin, occ = spin_shells[unfilled[0]]
+    all_force_occs = {}
+    for ms in combinations(range(-l, l+1), occ):
+        all_force_occs[','.join(map(str, ms))] = force_occs + [
+            (1, spin, 'atomic', n, l, m, 1, nmaxocc) for m in ms
+        ]
+    return all_force_occs
 
 
 def get_crystal(group, a, species):

@@ -1,4 +1,4 @@
-label;lattice;energy;B;group;k_grid;default_initial_moment;lattice2;occupation_type;charge_mix_param
+label;lattice;energy;B;group;k_grid;default_initial_moment;lattice_pbe;occupation_type;charge_mix_param
 Ag;4.069;-2.95;110.9;A1;24;;;;
 Al;4.032;-3.39;79.4;A1;24;;;;
 Au;4.065;-3.81;180.9;A1;24;;;;
