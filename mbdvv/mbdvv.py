@@ -2,13 +2,15 @@ import numpy as np
 import pandas as pd
 from itertools import islice, combinations
 import re
+from pkg_resources import resource_stream
 
 from caflib.Configure import function_task
 from caflib.Tools import geomlib2 as geomlib
 from caflib.Tools.geomlib2 import Atom
 from caflib.Tools.aims import AimsTask
-
 from caflib.Caf import Caf
+
+from .aimsparse import parse_xml
 
 ev = 27.2107
 
@@ -41,7 +43,7 @@ solids_tags = dict(
     override_illconditioning=True,
 )
 
-calc = Caf(__file__)
+calc = Caf()
 calc.paths = [
     'solids/<>/*/*',
     'solids/<>/*/*/<>',
@@ -50,10 +52,10 @@ calc.paths = [
 
 @calc.register('solids')
 def get_solids(ctx):
-    data = {'enes': [], 'vols': [], 'atoms': []}
+    data = {'solids': [], 'atoms': []}
     aims = AimsTask()
-    solid_data = pd.read_csv('data/solids.csv', sep=';')
-    atom_data = pd.read_csv('data/atoms.csv', sep=';') \
+    solid_data = pd.read_csv(resource_stream(__name__, 'data/solids.csv'), sep=';')
+    atom_data = pd.read_csv(resource_stream(__name__, 'data/atoms.csv'), sep=';') \
         .set_index('symbol', drop=False)
     all_atoms = set()
     for solid in solid_data.itertuples():
@@ -79,7 +81,7 @@ def get_solids(ctx):
             lattice *= scale
             geom = get_crystal(solid.group, lattice, atoms)
             label = f'crystals/{solid.label}/{scale}'
-            dft = ctx(
+            dft_task = ctx(
                 features=[aims],
                 geom=geom,
                 aims='aims.master',
@@ -87,23 +89,20 @@ def get_solids(ctx):
                 tags=tags,
                 label=label,
             )
-            calc = get_energy(
-                dft.outputs['run.out'],
-                label=f'{label}/energy',
-                ctx=ctx
+            results_task = ctx(
+                command='cp aims.xml results.xml',
+                inputs=[('aims.xml', dft_task.outputs['results.xml'])],
+                label=f'{label}/results',
             )
-            if calc.finished:
-                data['enes'].append((label, scale, calc.result/ev))
-            calc = get_volumes(
-                dft.outputs['run.out'],
-                label=f'{label}/volumes',
-                ctx=ctx
-            )
-            if calc.finished:
-                for i, vol in enumerate(calc.result):
-                    data['vols'].append((label, scale, i, vol))
-    data['enes'] = pd.DataFrame(data['enes'], columns='label scale ene'.split())
-    data['vols'] = pd.DataFrame(data['vols'], columns='label scale i vol'.split())
+            data['solids'].append((
+                solid.label,
+                scale,
+                parse_xml(results_task.outputs['results.xml'])
+                if results_task.finished else None,
+            ))
+    data['solids'] = pd \
+        .DataFrame(data['solids'], columns='label scale data'.split()) \
+        .set_index('label scale'.split())
     for species in all_atoms:
         atom = atom_data.loc[species]
         conf = atom.configuration
@@ -146,24 +145,6 @@ def get_energy(output):
     with open(output) as f:
         next(l_ for l_ in f if l_ == '  Self-consistency cycle converged.\n')
         return float(next(l for l in f if 'Total energy uncorrected' in l).split()[5])
-
-
-@function_task
-def get_volumes(output):
-    from math import nan
-
-    ratios = []
-    with open(output) as f:
-        next(l for l in f if 'Performing Hirshfeld analysis' in l)
-        for line in f:
-            if not line.strip():
-                break
-            if 'Free atom volume' in line:
-                free = float(line.split()[-1]) or nan
-            elif 'Hirshfeld volume' in line:
-                hirsh = float(line.split()[-1])
-                ratios.append(hirsh/free)
-    return ratios
 
 
 def get_force_occs(conf):
