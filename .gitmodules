@@ -1,3 +1,6 @@
 [submodule "caf"]
 	path = _caf
 	url = https://github.com/azag0/caf.git
+[submodule "vdwsets"]
+	path = _vdwsets
+	url = https://github.com/azag0/vdwsets.git
