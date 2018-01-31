@@ -5,10 +5,11 @@ import re
 from pkg_resources import resource_stream
 
 from caflib.Configure import function_task
-from caflib.Tools import geomlib2 as geomlib
-from caflib.Tools.geomlib2 import Atom
+from caflib.Tools import geomlib
+from caflib.Tools.geomlib import Atom
 from caflib.Tools.aims import AimsTask
 from caflib.Caf import Caf
+from vdwsets import get_s22
 
 from .aimsparse import parse_xml
 
@@ -43,17 +44,39 @@ solids_tags = dict(
     override_illconditioning=True,
 )
 
-calc = Caf()
-calc.paths = [
+app = Caf()
+app.paths = [
     'solids/<>/*/*',
     'solids/<>/*/*/<>',
 ]
+aims = AimsTask()
 
 
-@calc.register('solids')
+def taskgen(ctx, geom):
+    task = ctx(
+        features=[aims],
+        geom=geom,
+        basis='tight',
+        aims='aims.master',
+        label='',
+        tags={
+            **default_tags,
+            'output': 'hirshfeld_new',
+            'xml_file': 'results.xml',
+        }
+    )
+    return task
+
+
+@app.register('s22')
+def get_s22_set(ctx):
+    ds = get_s22()
+    ds.generate_tasks(ctx, taskgen)
+
+
+@app.register('solids')
 def get_solids(ctx):
     data = {'solids': [], 'atoms': []}
-    aims = AimsTask()
     solid_data = pd.read_csv(resource_stream(__name__, 'data/solids.csv'), sep=';')
     atom_data = pd.read_csv(resource_stream(__name__, 'data/atoms.csv'), sep=';') \
         .set_index('symbol', drop=False)
