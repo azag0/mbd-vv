@@ -77,8 +77,10 @@ def get_s22_set(ctx):
 @app.register('solids')
 def get_solids(ctx):
     data = {'solids': [], 'atoms': []}
-    solid_data = pd.read_csv(resource_stream(__name__, 'data/solids.csv'), sep=';')
-    atom_data = pd.read_csv(resource_stream(__name__, 'data/atoms.csv'), sep=';') \
+    solid_data = pd \
+        .read_csv(resource_stream(__name__, 'data/solids.csv'))
+    atom_data = pd \
+        .read_csv(resource_stream(__name__, 'data/atoms.csv')) \
         .set_index('symbol', drop=False)
     all_atoms = set()
     for solid in solid_data.itertuples():
@@ -130,9 +132,9 @@ def get_solids(ctx):
         atom = atom_data.loc[species]
         conf = atom.configuration
         while conf[0] == '[':
-            conf = atom_data.loc[conf[1:3]].configuration + ',' + conf[4:]
+            conf = atom_data.loc[conf[1:3]].configuration + '/' + conf[4:]
         geom = geomlib.Molecule([Atom(atom.symbol, (0, 0, 0))])
-        for conf, force_occ_tag in get_force_occs(conf.split(',')).items():
+        for conf, force_occ_tag in get_force_occs(conf.split('/')).items():
             label = f'atoms/{atom.symbol}/{conf}'
             tags = {
                 **default_tags,
