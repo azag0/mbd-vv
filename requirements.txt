@@ -1,6 +1,7 @@
 appnope==0.1.0
 bleach==2.1.2
 cffi==1.11.4
+cycler==0.10.0
 decorator==4.2.1
 docopt==0.6.2
 entrypoints==0.2.3
@@ -17,6 +18,7 @@ jupyter-client==5.2.1
 jupyter-console==5.2.0
 jupyter-core==4.4.0
 MarkupSafe==1.0
+matplotlib==2.1.2
 mistune==0.8.3
 mypy==0.560
 mypy-extensions==0.3.0
@@ -35,6 +37,7 @@ ptpython==0.41
 ptyprocess==0.5.2
 pycparser==2.18
 Pygments==2.2.0
+pyparsing==2.2.0
 python-dateutil==2.6.1
 pytz==2017.3
 pyzmq==16.0.3
@@ -46,6 +49,7 @@ six==1.11.0
 terminado==0.8.1
 testpath==0.3.1
 tornado==4.5.3
+tqdm==4.19.5
 traitlets==4.3.2
 typed-ast==1.1.0
 wcwidth==0.1.7

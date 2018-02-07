@@ -9,12 +9,12 @@ from caflib.Tools import geomlib
 from caflib.Tools.geomlib import Atom
 from caflib.Tools.aims import AimsTask
 from caflib.Caf import Caf
-from vdwsets import get_s22
+from vdwsets import get_s22, get_s66x8, Dataset, Cluster
 
 from .aimsparse import parse_xml
 
-ev = 27.2107
-
+kcal = 627.503
+ev = 27.2113845
 
 default_tags = dict(
     xc='pbe',
@@ -48,34 +48,63 @@ app = Caf()
 app.paths = [
     'solids/<>/*/*',
     'solids/<>/*/*/<>',
+    's22/*/*',
+    's22/*/*/<>',
+    's66/*/*',
+    's66/*/*/<>',
 ]
 aims = AimsTask()
 
 
-def taskgen(ctx, geom):
-    task = ctx(
-        features=[aims],
-        geom=geom,
-        basis='tight',
-        aims='aims.master',
-        label='',
-        tags={
-            **default_tags,
-            'output': 'hirshfeld_new',
-            'xml_file': 'results.xml',
-        }
-    )
-    return task
+def get_dataset(ds, ctx):
+    ds.load_geoms()
+    data = []
+    for key, cluster in ds.clusters.items():
+        for fragment, geom in cluster.fragments.items():
+            label = f'{"_".join(map(str, key))}/{fragment}'
+            dft_task = ctx(
+                features=[aims],
+                geom=geom,
+                basis='tight',
+                aims='aims.master',
+                label=label,
+                tags={
+                    **default_tags,
+                    'output': 'hirshfeld_new',
+                    'xml_file': 'results.xml',
+                }
+            )
+            results_task = ctx(
+                command='cp aims.xml results.xml',
+                inputs=[('aims.xml', dft_task.outputs['results.xml'])],
+                label=f'{label}/results',
+            )
+            data.append((
+                key,
+                fragment,
+                parse_xml(results_task.outputs['results.xml'])
+                if results_task.finished else None,
+            ))
+    data = pd \
+        .DataFrame(data, columns='key fragment data'.split()) \
+        .assign(set=ds.name) \
+        .set_index('set key fragment'.split())
+    return data, ds
 
 
 @app.register('s22')
 def get_s22_set(ctx):
-    ds = get_s22()
-    ds.generate_tasks(ctx, taskgen)
+    return get_dataset(get_s22(), ctx)
+
+
+@app.register('s66')
+def get_s66_set(ctx):
+    return get_dataset(get_s66x8(), ctx)
 
 
 @app.register('solids')
 def get_solids(ctx):
+    ds = Dataset('solids')
     data = {'solids': [], 'atoms': []}
     solid_data = pd \
         .read_csv(resource_stream(__name__, 'data/solids.csv'))
@@ -102,9 +131,18 @@ def get_solids(ctx):
         if not np.isnan(solid.charge_mix_param):
             tags['charge_mix_param'] = solid.charge_mix_param
         for scale in np.linspace(0.97, 1.03, 7):
-            lattice = solid.lattice_pbe if not np.isnan(solid.lattice_pbe) else solid.lattice
+            lattice = solid.lattice_pbe \
+                if not np.isnan(solid.lattice_pbe) \
+                else solid.lattice
             lattice *= scale
             geom = get_crystal(solid.group, lattice, atoms)
+            species = geom.species
+            cluster = Cluster(
+                energies={'ref': solid.energy},
+                intene=lambda x, species=species: (
+                    x['solid']-sum(x[sp] for sp in species)
+                )/len(species)
+            )
             label = f'crystals/{solid.label}/{scale}'
             dft_task = ctx(
                 features=[aims],
@@ -125,9 +163,11 @@ def get_solids(ctx):
                 parse_xml(results_task.outputs['results.xml'])
                 if results_task.finished else None,
             ))
+            ds[(solid.label, scale)] = cluster
     data['solids'] = pd \
         .DataFrame(data['solids'], columns='label scale data'.split()) \
-        .set_index('label scale'.split())
+        .assign(set='solids') \
+        .set_index('set label scale'.split())
     for species in all_atoms:
         atom = atom_data.loc[species]
         conf = atom.configuration
@@ -162,7 +202,7 @@ def get_solids(ctx):
     data['atoms'] = pd \
         .DataFrame(data['atoms'], columns='Z atom full_conf conf ene'.split()) \
         .set_index('Z atom full_conf conf'.split())
-    return data
+    return data, ds
 
 
 @function_task
