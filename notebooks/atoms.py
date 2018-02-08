@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[13]:
+# In[1]:
 
 
 from mbdvv import app, get_solids, get_s22_set, get_s66_set, kcal, ev
@@ -23,7 +23,7 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 get_ipython().run_line_magic('config', "InlineBackend.figure_format = 'svg'")
 
 
-# In[4]:
+# In[2]:
 
 
 def last(obj):
@@ -44,51 +44,24 @@ def chunks(iterable, n):
         if not chunk:
             break
         yield chunk
-        
-class Key:
-    __slots__ = ['_tpl']
-    
-    def __init__(self, *tpl):
-        self._tpl = tpl[0] if len(tpl) == 1 and isinstance(tpl, tuple) else tpl
-    
-    def __hash__(self):
-        return hash(self._tpl)
-    
-    def __getitem__(self, key):
-        return self._tpl[key]
-    
-    def __repr__(self):
-        return 'Key' + repr(self._tpl)
-    
-    def __str__(self):
-        return str(self._tpl)
-    
-    def __lt__(self, other):
-        return self._tpl < other
-    
-    def __gt__(self, other):
-        return self._tpl > other  
-    
-    def __eq__(self, other):
-        return self._tpl == other
 
 
-# In[17]:
+# In[3]:
 
 
-def ene_int(x, ds, get_key):
-    key = get_key(x)
-    enes = x.reset_index('key', drop=True).ene.unstack('fragment')
+def ene_int(x, ds):
+    key = x.iloc[0].name[:2]
+    enes = x.reset_index('scale label'.split(), drop=True).ene.unstack('fragment')
     cluster = ds.clusters[key]
     enes_int = cluster.get_int_ene(enes)
     return enes_int
 
-def ref_delta(x, ds, get_key):
-    ene = x.iloc[0]
-    ref = ds.clusters[get_key(x)].energies['ref']
+def ref_delta(x, ds):
+    ref = ds.df.loc(0)[x.name[:2]].energy
+    ene = x.ene.reset_index('scale label'.split(), drop=True)
     delta = ene-ref
     reldelta = delta/abs(ref)
-    return pd.Series(OrderedDict({
+    return pd.DataFrame(OrderedDict({
         'ene': ene,
         'delta': ene-ref,
         'reldelta': (ene-ref)/abs(ref),
@@ -119,7 +92,7 @@ def splice_key(df, indexes):
     ).drop('key', 1).set_index(['label', 'scale', *indexes])
 
 
-# In[6]:
+# In[4]:
 
 
 class MBDException(Exception):
@@ -210,7 +183,7 @@ def mbd_rsscs(mbd_calc, coords, alpha_0, C6, R_vdw, beta, lattice=None,
     return ene
 
 
-# In[7]:
+# In[5]:
 
 
 def mbd_from_data(calc, data, beta, vv_scale=None, vv_pol=False,
@@ -253,7 +226,7 @@ def mbd_from_data(calc, data, beta, vv_scale=None, vv_pol=False,
     )
 
 
-# In[8]:
+# In[6]:
 
 
 def all_mbd_variants(calc, data, variants):
@@ -273,58 +246,46 @@ def all_mbd_variants(calc, data, variants):
     return enes
 
 
-# In[9]:
+# In[104]:
 
 
 def calculate_solids(variants):
-    df_dft, ds = get_solids(app.ctx)
-    atom_enes = df_dft['atoms'].unstack().min(1).to_frame('ene').reset_index()[['atom', 'ene']].set_index('atom').ene
+    dfs_dft, ds = get_solids(app.ctx)
+    atom_enes = dfs_dft['atoms'].set_index('conf', append=True).ene.unstack().min(1)
     df = []
-    with MBDCalc() as mbd_calc:
-        for (_, label, scale), data in tqdm(list(df_dft['solids'].loc(0)['solids', :, 1.].itertuples())):
-            key = Key(label, scale)
-            atoms = [
-                ''.join(c) for c in
-                chunks(re.split(r'([A-Z])', label)[1:], 2)
-            ]
-            pbe_ene = data['energy'][0]['value'][0]
-            df.append((key, 'solid', 'PBE', pbe_ene))
-            for atom in atoms:
-                df.append((key, atom, 'PBE', atom_enes[atom]))
-            try:
-                enes = all_mbd_variants(mbd_calc, data, variants)
-            except MBDException as e:
-                print(label, scale, repr(e))
-                continue
+    with MBDCalc(4) as mbd_calc:
+        for (*key, fragment), data in tqdm(list(dfs_dft['solids'].loc(0)[:, 1.].itertuples())):
+            if fragment == 'crystal':
+                pbe_ene = data['energy'][0]['value'][0]
+            else:
+                pbe_ene = atom_enes[fragment]
+            df.append((*key, fragment, 'PBE', pbe_ene))
+            if fragment == 'crystal':
+                try:
+                    enes = all_mbd_variants(mbd_calc, data, variants)
+                except MBDException as e:
+                    # this happens only if `variants` contains 'throw': True
+                    print(label, scale, repr(e))
+                    continue
+            else:
+                enes = {v: 0. for v in variants}
             for mbd_label, ene in enes.items():
-                df.append((key, 'solid', mbd_label, ene))
-    df = pd.DataFrame(df, columns='key fragment method ene'.split())         .set_index('key fragment method'.split())
+                df.append((*key, fragment, mbd_label, ene))
+    df = pd.DataFrame(df, columns='label scale fragment method ene'.split())         .set_index('label scale fragment method'.split())
     return df, ds
 
 def analyse_solids(df, ds):
     return (
-        df.loc(0)[:, :, 'PBE']
-        .groupby('key').apply(ene_int, dataset, lambda x: x.iloc[0].name[0]).stack().to_frame('ene')
-        .pipe(lambda df: pd.concat((
-            df,
-            df.xs('PBE', level='method').join(
-                dataframe.query('method != "PBE"')
-                .xs('solid', level='fragment')
-                .reset_index('method'),
-                lsuffix='_pbe', rsuffix='_vdw'
-            ).apply(lambda x: pd.Series({
-                'ene': x.ene_pbe+x.ene_vdw,
-                'method': 'PBE+' + str(x.method)
-            }), 1).set_index('method', append=True),
-        )).sort_index())
-        .assign(ene=lambda x: x.ene*ev)
-        .apply(ref_delta, axis=1, args=(dataset, lambda x: x.name[0]))
-        .pipe(splice_key, ['method'])
-        .groupby('method').apply(ds_stat)
+        df
+        .groupby('label scale'.split()).apply(ene_int, ds)
+        .apply(ene_dft_vdw, 1).stack(dropna=False)
+        .pipe(lambda x: x*ev).to_frame('ene')
+        .groupby('label scale'.split()).apply(ref_delta, dataset)
+        .groupby('method scale'.split()).apply(ds_stat)
     )
 
 
-# In[18]:
+# In[105]:
 
 
 variants = {
@@ -349,31 +310,29 @@ dataframe, dataset = calculate_solids(variants)
 analyse_solids(dataframe, dataset)
 
 
-# In[19]:
+# In[9]:
 
 
 def calculate_s66(variants):
     df_dft, ds = get_s66_set(app.ctx)
     df = []
     with MBDCalc(4) as mbd_calc:
-        for (key, fragment), data in tqdm(list(df_dft.loc(0)[ds.name].itertuples())):
-            key = Key(key)
+        for (*key, fragment), data in tqdm(list(df_dft.itertuples())):
             pbe_ene = data['energy'][0]['value'][0]
-            df.append((key, fragment, 'PBE', pbe_ene))
+            df.append((*key, fragment, 'PBE', pbe_ene))
             enes = all_mbd_variants(mbd_calc, data, variants)
             for mbd_label, ene in enes.items():
-                df.append((key, fragment, mbd_label, ene))
-    df = pd.DataFrame(df, columns='key fragment method ene'.split())         .set_index('key fragment method'.split())
+                df.append((*key, fragment, mbd_label, ene))
+    df = pd.DataFrame(df, columns='label scale fragment method ene'.split())         .set_index('label scale fragment method'.split())
     return df, ds
 
 def analyse_s66(df, ds):
     df = (
         df
-        .groupby('key').apply(ene_int, ds, lambda x: x.iloc[0].name[0])
-        .apply(ene_dft_vdw, 1).rename_axis('method', 1).stack().to_frame('ene')
-        .assign(ene=lambda x: x.ene*kcal)
-        .apply(ref_delta, 1, args=(ds, lambda x: x.name[0]))
-        .pipe(splice_key, ['method'])
+        .groupby('label scale'.split()).apply(ene_int, ds)
+        .apply(ene_dft_vdw, 1).stack(dropna=False)
+        .pipe(lambda x: x*kcal).to_frame('ene')
+        .groupby('label scale'.split()).apply(ref_delta, dataset)
     )
     return pd.concat((
         df.loc(0)[:, 1.].groupby('method scale'.split()).apply(ds_stat),
@@ -382,7 +341,7 @@ def analyse_s66(df, ds):
     )).sort_index()
 
 
-# In[20]:
+# In[10]:
 
 
 variants = {

@@ -61,7 +61,7 @@ def get_dataset(ds, ctx):
     data = []
     for key, cluster in ds.clusters.items():
         for fragment, geom in cluster.fragments.items():
-            label = f'{"_".join(map(str, key))}/{fragment}'
+            label = f'{"_".join(map(lambda k: str(k).lower().replace(" ", "-"), key))}/{fragment}'
             dft_task = ctx(
                 features=[aims],
                 geom=geom,
@@ -80,15 +80,14 @@ def get_dataset(ds, ctx):
                 label=f'{label}/results',
             )
             data.append((
-                key,
+                *key,
                 fragment,
                 parse_xml(results_task.outputs['results.xml'])
                 if results_task.finished else None,
             ))
     data = pd \
-        .DataFrame(data, columns='key fragment data'.split()) \
-        .assign(set=ds.name) \
-        .set_index('set key fragment'.split())
+        .DataFrame(data, columns='label scale fragment data'.split()) \
+        .set_index('label scale fragment'.split())
     return data, ds
 
 
@@ -104,20 +103,18 @@ def get_s66_set(ctx):
 
 @app.register('solids')
 def get_solids(ctx):
-    ds = Dataset('solids')
-    data = {'solids': [], 'atoms': []}
-    solid_data = pd \
-        .read_csv(resource_stream(__name__, 'data/solids.csv'))
-    atom_data = pd \
-        .read_csv(resource_stream(__name__, 'data/atoms.csv')) \
-        .set_index('symbol', drop=False)
+    df_solids = pd.read_csv(resource_stream(__name__, 'data/solids.csv'), index_col='label scale'.split())
+    df_atoms = pd.read_csv(resource_stream(__name__, 'data/atoms.csv'), index_col='symbol')
+    ds = Dataset('solids', df_solids)
     all_atoms = set()
-    for solid in solid_data.itertuples():
-        if solid.label == 'Th':
+    data = {'solids': [], 'atoms': []}
+    for solid in df_solids.itertuples():
+        label = solid.Index[0]
+        if label == 'Th':
             continue
         atoms = [
             ''.join(c) for c in
-            chunks(re.split(r'([A-Z])', solid.label)[1:], 2)
+            chunks(re.split(r'([A-Z])', label)[1:], 2)
         ]
         all_atoms.update(atoms)
         tags = {**default_tags, **solids_tags}
@@ -135,47 +132,46 @@ def get_solids(ctx):
                 if not np.isnan(solid.lattice_pbe) \
                 else solid.lattice
             lattice *= scale
-            geom = get_crystal(solid.group, lattice, atoms)
-            species = geom.species
-            cluster = Cluster(
-                energies={'ref': solid.energy},
-                intene=lambda x, species=species: (
-                    x['solid']-sum(x[sp] for sp in species)
-                )/len(species)
-            )
-            label = f'crystals/{solid.label}/{scale}'
+            geom = get_crystal(solid.structure, lattice, atoms)
+            root = f'crystals/{label}/{scale}'
             dft_task = ctx(
                 features=[aims],
                 geom=geom,
                 aims='aims.master',
                 basis='tight',
                 tags=tags,
-                label=label,
+                label=root,
             )
             results_task = ctx(
                 command='cp aims.xml results.xml',
                 inputs=[('aims.xml', dft_task.outputs['results.xml'])],
-                label=f'{label}/results',
+                label=f'{root}/results',
             )
             data['solids'].append((
-                solid.label,
+                label,
                 scale,
+                'crystal',
                 parse_xml(results_task.outputs['results.xml'])
                 if results_task.finished else None,
             ))
-            ds[(solid.label, scale)] = cluster
+            for atom in atoms:
+                data['solids'].append((label, scale, atom, None))
+            ds[label, scale] = Cluster(
+                intene=lambda x, species=geom.species: (
+                    x['crystal']-sum(x[sp] for sp in species)
+                )/len(species)
+            )
     data['solids'] = pd \
-        .DataFrame(data['solids'], columns='label scale data'.split()) \
-        .assign(set='solids') \
-        .set_index('set label scale'.split())
+        .DataFrame(data['solids'], columns='label scale fragment data'.split()) \
+        .set_index('label scale fragment'.split())
     for species in all_atoms:
-        atom = atom_data.loc[species]
+        atom = df_atoms.loc[species]
         conf = atom.configuration
         while conf[0] == '[':
-            conf = atom_data.loc[conf[1:3]].configuration + '/' + conf[4:]
-        geom = geomlib.Molecule([Atom(atom.symbol, (0, 0, 0))])
+            conf = df_atoms.loc[conf[1:3]].configuration + '/' + conf[4:]
+        geom = geomlib.Molecule([Atom(atom.name, (0, 0, 0))])
         for conf, force_occ_tag in get_force_occs(conf.split('/')).items():
-            label = f'atoms/{atom.symbol}/{conf}'
+            label = f'atoms/{atom.name}/{conf}'
             tags = {
                 **default_tags,
                 **atom_tags,
@@ -194,14 +190,14 @@ def get_solids(ctx):
             )
             data['atoms'].append((
                 atom.Z,
-                atom.symbol,
+                atom.name,
                 atom.configuration,
                 conf,
                 calc.result/ev if calc.finished else None
             ))
     data['atoms'] = pd \
-        .DataFrame(data['atoms'], columns='Z atom full_conf conf ene'.split()) \
-        .set_index('Z atom full_conf conf'.split())
+        .DataFrame(data['atoms'], columns='Z symbol full_conf conf ene'.split()) \
+        .set_index('symbol')
     return data, ds
 
 
