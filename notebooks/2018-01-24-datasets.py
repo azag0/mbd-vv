@@ -246,7 +246,7 @@ def all_mbd_variants(calc, data, variants):
     return enes
 
 
-# In[104]:
+# In[7]:
 
 
 def calculate_solids(variants):
@@ -285,7 +285,7 @@ def analyse_solids(df, ds):
     )
 
 
-# In[105]:
+# In[8]:
 
 
 variants = {
