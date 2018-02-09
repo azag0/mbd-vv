@@ -1,0 +1,27 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+"1e60966" = {path = "_caf", editable = true}
+numpy = "*"
+pandas = "*"
+"31b22f4" = {path = "_vdwsets", editable = true}
+
+
+[dev-packages]
+
+jupyter = "*"
+pyyaml = "*"
+jupyter-nbextensions-configurator = "*"
+"e1839a8" = {path = ".", editable = true}
+cffi = "*"
+"5016490" = {path = "/Users/hermann/Code/pymbd", editable = true}
+scipy = "*"
+tqdm = "*"
+matplotlib = "*"
+jupyter-contrib-nbextensions = "*"
