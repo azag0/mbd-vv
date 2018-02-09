@@ -4,3 +4,6 @@
 [submodule "vdwsets"]
 	path = _vdwsets
 	url = https://github.com/azag0/vdwsets.git
+[submodule "atsol"]
+	path = _atsol
+	url = https://github.com/azag0/pyatsol.git

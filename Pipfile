@@ -25,3 +25,4 @@ scipy = "*"
 tqdm = "*"
 matplotlib = "*"
 jupyter-contrib-nbextensions = "*"
+"20adf2b" = {path = "_atsol", editable = true}
