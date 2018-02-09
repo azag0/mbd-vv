@@ -80,7 +80,6 @@ def ds_stat(x):
         'MARE': abs(x['reldelta']).mean(),
         'MdRE': x['reldelta'].median(),
         'MdARE': abs(x['reldelta']).median(),
-        'SDRE': x['reldelta'].std(),
         'ME': x['delta'].mean(),
         'MAE': abs(x['delta']).mean(),
     }))
@@ -274,16 +273,6 @@ def calculate_solids(variants):
     df = pd.DataFrame(df, columns='label scale fragment method ene'.split())         .set_index('label scale fragment method'.split())
     return df, ds
 
-def analyse_solids(df, ds):
-    return (
-        df
-        .groupby('label scale'.split()).apply(ene_int, ds)
-        .apply(ene_dft_vdw, 1).stack(dropna=False)
-        .pipe(lambda x: x*ev).to_frame('ene')
-        .groupby('label scale'.split()).apply(ref_delta, dataset)
-        .groupby('method scale'.split()).apply(ds_stat)
-    )
-
 
 # In[8]:
 
@@ -307,10 +296,26 @@ variants = {
     'MBD(RPA,vvpol,nocorr,vdw17,noscs)': {'rpa': True, 'vv_pol': True, 'vv_corr': False, 'vdw17': True, 'noscs': True},
 }
 dataframe, dataset = calculate_solids(variants)
-analyse_solids(dataframe, dataset)
 
 
 # In[9]:
+
+
+def add_group(x, ds):
+    return x.assign(group=ds.df.loc(0)[x.name[:2]].group)
+
+(
+    dataframe
+    .groupby('label scale'.split()).apply(ene_int, dataset)
+    .apply(ene_dft_vdw, 1).stack(dropna=False)
+    .pipe(lambda x: x*ev).to_frame('ene')
+    .groupby('label scale'.split()).apply(ref_delta, dataset)
+    .groupby('label scale'.split()).apply(add_group, dataset)
+    .groupby('group method scale'.split()).apply(ds_stat)
+)
+
+
+# In[10]:
 
 
 def calculate_s66(variants):
@@ -341,7 +346,7 @@ def analyse_s66(df, ds):
     )).sort_index()
 
 
-# In[10]:
+# In[11]:
 
 
 variants = {
