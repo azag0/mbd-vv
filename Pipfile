@@ -15,14 +15,12 @@ pandas = "*"
 
 [dev-packages]
 
-jupyter = "*"
-pyyaml = "*"
-jupyter-nbextensions-configurator = "*"
 "e1839a8" = {path = ".", editable = true}
 cffi = "*"
 "5016490" = {path = "/Users/hermann/Code/pymbd", editable = true}
 scipy = "*"
 tqdm = "*"
 matplotlib = "*"
-jupyter-contrib-nbextensions = "*"
 "20adf2b" = {path = "_atsol", editable = true}
+mypy = "*"
+ipykernel = "*"
