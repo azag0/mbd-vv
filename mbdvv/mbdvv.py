@@ -201,6 +201,53 @@ def get_solids(ctx):
     return data, ds
 
 
+@app.register('atoms')
+def get_atoms(ctx):
+    df_atoms = pd.read_csv(resource_stream(__name__, 'data/atoms.csv'), index_col='symbol')
+    table = []
+    for atom in df_atoms.itertuples():
+        if atom.Index in ['Ce']:
+            continue
+        conf = atom.configuration
+        while conf[0] == '[':
+            conf = df_atoms.loc[conf[1:3]].configuration + '/' + conf[4:]
+        geom = geomlib.Molecule([Atom(atom.Index, (0, 0, 0))])
+        for conf, force_occ_tag in get_force_occs(conf.split('/')).items():
+            label = f'{atom.Index}/{conf}'
+            tags = {
+                **default_tags,
+                **atom_tags,
+                'force_occupation_basis': force_occ_tag,
+                'xc': 'pbe0',
+                'output': 'hirshfeld_new',
+                'xml_file': 'results.xml',
+                'k_offset': None,
+            }
+            dft_task = ctx(
+                features=[aims],
+                geom=geom,
+                aims='aims.dd96b0c',
+                basis='tight',
+                tags=tags,
+                label=label,
+            )
+            results_task = ctx(
+                command='cp aims.xml results.xml',
+                inputs=[('aims.xml', dft_task.outputs['results.xml'])],
+                label=f'{label}/results',
+            )
+            table.append((
+                atom.Z,
+                conf,
+                atom.Index,
+                parse_xml(results_task.outputs['results.xml']) if results_task.finished else None,
+            ))
+    table = pd \
+        .DataFrame(table, columns='Z conf symbol results'.split()) \
+        .set_index('Z conf'.split())
+    return table
+
+
 @function_task
 def get_energy(output):
     with open(output) as f:
