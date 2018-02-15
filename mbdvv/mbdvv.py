@@ -4,11 +4,11 @@ from itertools import islice, combinations
 import re
 from pkg_resources import resource_stream
 
-from caflib.Configure import function_task
-from caflib.Tools import geomlib
-from caflib.Tools.geomlib import Atom
-from caflib.Tools.aims import AimsTask
-from caflib.Caf import Caf
+from caf.Configure import function_task
+from caf.Tools import geomlib
+from caf.Tools.geomlib import Atom
+from caf.Tools.aims import AimsTask
+from caf import Caf
 from vdwsets import get_s22, get_s66x8, Dataset, Cluster
 
 kcal = 627.503
