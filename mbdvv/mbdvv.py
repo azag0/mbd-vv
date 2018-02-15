@@ -11,17 +11,16 @@ from caflib.Tools.aims import AimsTask
 from caflib.Caf import Caf
 from vdwsets import get_s22, get_s66x8, Dataset, Cluster
 
-from .aimsparse import parse_xml
-
 kcal = 627.503
 ev = 27.2113845
+aims_binary = 'aims-138e95e'
 
 default_tags = dict(
     xc='pbe',
     spin='none',
     relativistic=('zora', 'scalar', 1e-12),
+    total_energy_method='tpss',
     charge=0.,
-    k_offset=(0.5, 0.5, 0.5),
     occupation_type=('gaussian', 0.02),
     mixer='pulay',
     n_max_pulay=10,
@@ -31,6 +30,8 @@ default_tags = dict(
     sc_accuracy_etot=1e-6,
     sc_iter_limit=50,
     empty_states=10,
+    output=('hirshfeld_new', '.true.'),
+    xml_file='results.xml',
 )
 atom_tags = dict(
     spin='collinear',
@@ -39,9 +40,8 @@ atom_tags = dict(
     occupation_acc=1e-10,
 )
 solids_tags = dict(
-    output='hirshfeld_new',
-    xml_file='results.xml',
     override_illconditioning=True,
+    k_offset=(0.5, 0.5, 0.5),
 )
 
 app = Caf()
@@ -56,37 +56,39 @@ app.paths = [
 aims = AimsTask()
 
 
+def join_grids(task):
+    task['command'] += ' && head -2 grid-0.xml >grid.xml && for f in grid-*.xml; do tail -n +3 -q $f | head -n -1 >>grid.xml; done && tail -1 grid-0.xml >>grid.xml && rm grid-*.xml'
+
+
 def get_dataset(ds, ctx):
     ds.load_geoms()
     data = []
     for key, cluster in ds.clusters.items():
+        key_label = '_'.join(map(lambda k: str(k).lower().replace(' ', '-'), key))
         for fragment, geom in cluster.fragments.items():
-            label = f'{"_".join(map(lambda k: str(k).lower().replace(" ", "-"), key))}/{fragment}'
+            label = f'{key_label}/{fragment}'
             dft_task = ctx(
-                features=[aims],
+                features=[aims, join_grids],
                 geom=geom,
                 basis='tight',
-                aims='aims.master',
+                aims=aims_binary,
+                tier=2,
                 label=label,
-                tags={
-                    **default_tags,
-                    'output': 'hirshfeld_new',
-                    'xml_file': 'results.xml',
-                }
+                tags=default_tags,
             )
-            results_task = ctx(
-                command='cp aims.xml results.xml',
-                inputs=[('aims.xml', dft_task.outputs['results.xml'])],
-                label=f'{label}/results',
+            results_task = get_results(
+                dft_task.outputs['results.xml'], label=f'{label}/results', ctx=ctx
+            )
+            grid_task = get_grid(
+                dft_task.outputs['grid.xml'], label=f'{label}/grid', ctx=ctx
             )
             data.append((
-                *key,
-                fragment,
-                parse_xml(results_task.outputs['results.xml'])
-                if results_task.finished else None,
+                *key, fragment,
+                results_task.result if results_task.finished else None,
+                str(grid_task.outputs['grid.h5']) if grid_task.finished else None,
             ))
     data = pd \
-        .DataFrame(data, columns='label scale fragment data'.split()) \
+        .DataFrame(data, columns='label scale fragment data gridfile'.split()) \
         .set_index('label scale fragment'.split())
     return data, ds
 
@@ -113,8 +115,7 @@ def get_solids(ctx):
         if label == 'Th':
             continue
         atoms = [
-            ''.join(c) for c in
-            chunks(re.split(r'([A-Z])', label)[1:], 2)
+            ''.join(c) for c in chunks(re.split(r'([A-Z])', label)[1:], 2)
         ]
         all_atoms.update(atoms)
         tags = {**default_tags, **solids_tags}
@@ -135,34 +136,34 @@ def get_solids(ctx):
             geom = get_crystal(solid.structure, lattice, atoms)
             root = f'crystals/{label}/{scale}'
             dft_task = ctx(
-                features=[aims],
+                features=[aims, join_grids],
                 geom=geom,
-                aims='aims.master',
+                aims=aims_binary,
                 basis='tight',
+                tier=2,
                 tags=tags,
                 label=root,
             )
-            results_task = ctx(
-                command='cp aims.xml results.xml',
-                inputs=[('aims.xml', dft_task.outputs['results.xml'])],
-                label=f'{root}/results',
+            results_task = get_results(
+                dft_task.outputs['results.xml'], label=f'{root}/results', ctx=ctx
+            )
+            grid_task = get_grid(
+                dft_task.outputs['grid.xml'], label=f'{root}/grid', ctx=ctx
             )
             data['solids'].append((
-                label,
-                scale,
-                'crystal',
-                parse_xml(results_task.outputs['results.xml'])
-                if results_task.finished else None,
+                label, scale, 'crystal',
+                results_task.result if results_task.finished else None,
+                str(grid_task.outputs['grid.h5']) if grid_task.finished else None,
             ))
             for atom in atoms:
-                data['solids'].append((label, scale, atom, None))
+                data['solids'].append((label, scale, atom, None, None))
             ds[label, scale] = Cluster(
                 intene=lambda x, species=geom.species: (
                     x['crystal']-sum(x[sp] for sp in species)
                 )/len(species)
             )
     data['solids'] = pd \
-        .DataFrame(data['solids'], columns='label scale fragment data'.split()) \
+        .DataFrame(data['solids'], columns='label scale fragment data gridfile'.split()) \
         .set_index('label scale fragment'.split())
     for species in all_atoms:
         atom = df_atoms.loc[species]
@@ -170,89 +171,52 @@ def get_solids(ctx):
         while conf[0] == '[':
             conf = df_atoms.loc[conf[1:3]].configuration + '/' + conf[4:]
         geom = geomlib.Molecule([Atom(atom.name, (0, 0, 0))])
-        for conf, force_occ_tag in get_force_occs(conf.split('/')).items():
+        force_occ_tags = get_force_occs(conf.split('/'))
+        for conf, force_occ_tag in force_occ_tags.items():
             label = f'atoms/{atom.name}/{conf}'
             tags = {
                 **default_tags,
                 **atom_tags,
                 'force_occupation_basis': force_occ_tag
             }
-            dft = ctx(
-                features=[aims],
+            dft_task = ctx(
+                features=[aims, join_grids],
                 geom=geom,
-                aims='aims.master',
+                aims=aims_binary,
                 basis='tight',
+                tier=3,
                 tags=tags,
                 label=label,
             )
-            calc = get_energy(
-                dft.outputs['run.out'], label=f'{label}/energy', ctx=ctx
+            results_task = get_results(
+                dft_task.outputs['results.xml'], label=f'{label}/results', ctx=ctx
             )
             data['atoms'].append((
-                atom.Z,
-                atom.name,
-                atom.configuration,
-                conf,
-                calc.result/ev if calc.finished else None
+                atom.Z, atom.name, atom.configuration, conf,
+                results_task.result if results_task.finished else None,
             ))
     data['atoms'] = pd \
-        .DataFrame(data['atoms'], columns='Z symbol full_conf conf ene'.split()) \
+        .DataFrame(data['atoms'], columns='Z symbol full_conf conf data'.split()) \
         .set_index('symbol')
     return data, ds
 
 
-@app.register('atoms')
-def get_atoms(ctx):
-    df_atoms = pd.read_csv(resource_stream(__name__, 'data/atoms.csv'), index_col='symbol')
-    table = []
-    for atom in df_atoms.itertuples():
-        if atom.Index in ['Ce']:
-            continue
-        conf = atom.configuration
-        while conf[0] == '[':
-            conf = df_atoms.loc[conf[1:3]].configuration + '/' + conf[4:]
-        geom = geomlib.Molecule([Atom(atom.Index, (0, 0, 0))])
-        for conf, force_occ_tag in get_force_occs(conf.split('/')).items():
-            label = f'{atom.Index}/{conf}'
-            tags = {
-                **default_tags,
-                **atom_tags,
-                'force_occupation_basis': force_occ_tag,
-                'xc': 'pbe0',
-                'output': 'hirshfeld_new',
-                'xml_file': 'results.xml',
-                'k_offset': None,
-            }
-            dft_task = ctx(
-                features=[aims],
-                geom=geom,
-                aims='aims.dd96b0c',
-                basis='tight',
-                tags=tags,
-                label=label,
-            )
-            results_task = ctx(
-                command='cp aims.xml results.xml',
-                inputs=[('aims.xml', dft_task.outputs['results.xml'])],
-                label=f'{label}/results',
-            )
-            table.append((
-                atom.Z,
-                conf,
-                atom.Index,
-                parse_xml(results_task.outputs['results.xml']) if results_task.finished else None,
-            ))
-    table = pd \
-        .DataFrame(table, columns='Z conf symbol results'.split()) \
-        .set_index('Z conf'.split())
-    return table
+@function_task
+def get_results(output):
+    from mbdvv.aimsparse import parse_xml
+
+    return parse_xml(output)
 
 
 @function_task
-def get_energy(output):
-    with open(output) as f:
-        next(l_ for l_ in f if l_ == '  Self-consistency cycle converged.\n')
-        return float(next(l for l in f if 'Total energy uncorrected' in l).split()[5])
+def get_grid(gridfile):
+    from mbdvv.aimsparse import parse_xml
+    import pandas as pd
+
+    data = parse_xml(gridfile)['point']
+    keys = [k for k in data[0] if k not in {'dweightdr', 'dweightdh'}]
+    df = pd.DataFrame([[pt[k][0] for k in keys] for pt in data], columns=keys)
+    df.to_hdf('grid.h5', 'grid')
 
 
 def get_force_occs(conf):
@@ -262,30 +226,32 @@ def get_force_occs(conf):
         for shell in conf
     ]
     nmaxocc = sum(2*l+1 for n, l, occ in shells)
-    spin_shells = []
-    for n, l, occ in shells:
-        for spin in (1, 2):
-            spin_occ = min(occ, 2*l+1)
-            occ -= spin_occ
-            spin_shells.append((n, l, spin, spin_occ))
-            if occ == 0:
-                break
+    # spin_shells = []
+    # for n, l, occ in shells:
+    #     for spin in (1, 2):
+    #         spin_occ = min(occ, 2*l+1)
+    #         occ -= spin_occ
+    #         spin_shells.append((n, l, spin, spin_occ))
+    #         if occ == 0:
+    #             break
     force_occs = []
     unfilled = []
-    for i_shell, (n, l, spin, occ) in enumerate(spin_shells):
-        if occ < 2*l+1:
+    for i_shell, (n, l, occ) in enumerate(shells):
+        if occ <= 2*l+1:
+            for m in range(-l, l+1):
+                force_occs.append((1, 2, 'atomic', n, l, m, 0, nmaxocc))
+        if occ % (2*l+1) != 0:
             unfilled.append(i_shell)
-            continue
-        for m in range(-l, l+1):
-            force_occs.append((1, spin, 'atomic', n, l, m, 1, nmaxocc))
+        # for m in range(-l, l+1):
+        #     force_occs.append((1, spin, 'atomic', n, l, m, 1, nmaxocc))
     assert len(unfilled) <= 1
     if len(unfilled) == 0:
         return {'-': force_occs}
-    n, l, spin, occ = spin_shells[unfilled[0]]
+    n, l, occ = shells[unfilled[0]]
     all_force_occs = {}
-    for ms in combinations(range(-l, l+1), occ):
+    for ms in combinations(range(-l, l+1), 2*l+1-(occ % (2*l+1))):
         all_force_occs[','.join(map(str, ms))] = force_occs + [
-            (1, spin, 'atomic', n, l, m, 1, nmaxocc) for m in ms
+            (1, 1, 'atomic', n, l, m, 0, nmaxocc) for m in ms
         ]
     return all_force_occs
 
