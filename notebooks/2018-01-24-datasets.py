@@ -4,7 +4,7 @@
 # In[1]:
 
 
-from mbdvv import app, get_solids, get_s22_set, get_s66_set, kcal, ev
+from mbdvv import app, kcal, ev
 from pymbd import MBDCalc, from_volumes, ang, vdw_params, get_kgrid
 
 from scipy.special import erf
@@ -249,11 +249,16 @@ def all_mbd_variants(calc, data, variants):
 
 
 def calculate_solids(variants):
-    dfs_dft, ds = get_solids(app.ctx)
-    atom_enes = dfs_dft['atoms'].set_index('conf', append=True).ene.unstack().min(1)
+    with app.context():
+        dfs_dft, ds = app.get_route('solids')
+    atom_enes = (
+        dfs_dft['atoms'].set_index('conf', append='True').data
+        .apply(lambda y: y['energy'][0]['value'][0] if y else None, 1)
+        .unstack().min(1)
+    )
     df = []
     with MBDCalc(4) as mbd_calc:
-        for (*key, fragment), data in tqdm(list(dfs_dft['solids'].loc(0)[:, 1.].itertuples())):
+        for (*key, fragment), data, _ in tqdm(list(dfs_dft['solids'].loc(0)[:, 1.].itertuples())):
             if fragment == 'crystal':
                 pbe_ene = data['energy'][0]['value'][0]
             else:
@@ -319,10 +324,11 @@ def add_group(x, ds):
 
 
 def calculate_s66(variants):
-    df_dft, ds = get_s66_set(app.ctx)
+    with app.context():
+        df_dft, ds = app.get_route('s66')
     df = []
     with MBDCalc(4) as mbd_calc:
-        for (*key, fragment), data in tqdm(list(df_dft.itertuples())):
+        for (*key, fragment), data, _ in tqdm(list(df_dft.itertuples())):
             pbe_ene = data['energy'][0]['value'][0]
             df.append((*key, fragment, 'PBE', pbe_ene))
             enes = all_mbd_variants(mbd_calc, data, variants)

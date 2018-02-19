@@ -2,3 +2,5 @@
 /.caf/
 /build/
 *.egg-info/
+*.h5
+*.svgz
