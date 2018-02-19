@@ -4,7 +4,9 @@ from itertools import islice, combinations
 import re
 from pkg_resources import resource_stream
 
-from caf.Configure import function_task
+from caf.cellar import Cellar, collect
+from caf.executors import DirBashExecutor, DirPythonExecutor
+from caf.scheduler import Scheduler
 from caf.Tools import geomlib
 from caf.Tools.geomlib import Atom
 from caf.Tools.aims import AimsTask
@@ -45,6 +47,7 @@ solids_tags = dict(
 )
 
 app = Caf()
+app.init()
 app.paths = [
     'solids/<>/*/*',
     'solids/<>/*/*/<>',
@@ -53,60 +56,76 @@ app.paths = [
     's66/*/*',
     's66/*/*/<>',
 ]
-aims = AimsTask()
+cellar = Cellar(app, hook=True)
+dir_bash = DirBashExecutor(app, cellar)
+dir_python = DirPythonExecutor(app, cellar)
+Scheduler(cellar, hook=True)
+aims = AimsTask(dir_bash=dir_bash)
 
 
 def join_grids(task):
-    task['command'] += ' && head -2 grid-0.xml >grid.xml && for f in grid-*.xml; do tail -n +3 -q $f | head -n -1 >>grid.xml; done && tail -1 grid-0.xml >>grid.xml && rm grid-*.xml'
+    task['command'] += (
+        ' && head -2 grid-0.xml >grid.xml && for f in grid-*.xml; '
+        'do tail -n +3 -q $f | head -n -1 >>grid.xml; '
+        'done && tail -1 grid-0.xml >>grid.xml && rm grid-*.xml'
+    )
 
 
-def get_dataset(ds, ctx):
+async def get_dataset(ds):
     ds.load_geoms()
-    data = []
+    coros = []
     for key, cluster in ds.clusters.items():
-        key_label = '_'.join(map(lambda k: str(k).lower().replace(' ', '-'), key))
         for fragment, geom in cluster.fragments.items():
-            label = f'{key_label}/{fragment}'
-            dft_task = ctx(
-                features=[aims, join_grids],
-                geom=geom,
-                basis='tight',
-                aims=aims_binary,
-                tier=2,
-                label=label,
-                tags=default_tags,
-            )
-            results_task = get_results(
-                dft_task.outputs['results.xml'], label=f'{label}/results', ctx=ctx
-            )
-            grid_task = get_grid(
-                dft_task.outputs['grid.xml'], label=f'{label}/grid', ctx=ctx
-            )
-            data.append((
-                *key, fragment,
-                results_task.result if results_task.finished else None,
-                str(grid_task.outputs['grid.h5']) if grid_task.finished else None,
-            ))
+            coros.append(taskgen(ds.name.lower(), key, fragment, geom))
+    data = await collect(coros)
     data = pd \
         .DataFrame(data, columns='label scale fragment data gridfile'.split()) \
         .set_index('label scale fragment'.split())
     return data, ds
 
 
-@app.register('s22')
-def get_s22_set(ctx):
-    return get_dataset(get_s22(), ctx)
+@app.register_route('s22')
+async def get_s22_set():
+    return await get_dataset(get_s22())
 
 
-@app.register('s66')
-def get_s66_set(ctx):
-    return get_dataset(get_s66x8(), ctx)
+@app.register_route('s66')
+async def get_s66_set():
+    return await get_dataset(get_s66x8())
 
 
-@app.register('solids')
-def get_solids(ctx):
-    df_solids = pd.read_csv(resource_stream(__name__, 'data/solids.csv'), index_col='label scale'.split())
-    df_atoms = pd.read_csv(resource_stream(__name__, 'data/atoms.csv'), index_col='symbol')
+async def taskgen(dsname, key, fragment, geom):
+    key_label = '_'.join(map(lambda k: str(k).lower().replace(' ', '-'), key))
+    label = f'{dsname}/{key_label}/{fragment}'
+    dft_task = await aims.task(
+        geom=geom,
+        basis='tight',
+        aims=aims_binary,
+        tier=2,
+        label=label,
+        tags=default_tags,
+        extra_feat=[join_grids],
+    )
+    results, grid_task = await collect([
+        get_results(dft_task['results.xml'], label=f'{label}/results'),
+        get_grid(dft_task['grid.xml'], label=f'{label}/grid')
+    ])
+    return (
+        *key, fragment, results,
+        str(grid_task['grid.h5'].path) if grid_task else None
+    )
+
+
+@app.register_route('solids')
+async def get_solids():
+    df_solids = pd.read_csv(
+        resource_stream(__name__, 'data/solids.csv'),
+        index_col='label scale'.split()
+    )
+    df_atoms = pd.read_csv(
+        resource_stream(__name__, 'data/atoms.csv'),
+        index_col='symbol'
+    )
     ds = Dataset('solids', df_solids)
     all_atoms = set()
     data = {'solids': [], 'atoms': []}
@@ -134,26 +153,23 @@ def get_solids(ctx):
                 else solid.lattice
             lattice *= scale
             geom = get_crystal(solid.structure, lattice, atoms)
-            root = f'crystals/{label}/{scale}'
-            dft_task = ctx(
-                features=[aims, join_grids],
+            root = f'solids/crystals/{label}/{scale}'
+            dft_task = await aims.task(
                 geom=geom,
                 aims=aims_binary,
                 basis='tight',
                 tier=2,
                 tags=tags,
                 label=root,
+                extra_feat=[join_grids],
             )
-            results_task = get_results(
-                dft_task.outputs['results.xml'], label=f'{root}/results', ctx=ctx
-            )
-            grid_task = get_grid(
-                dft_task.outputs['grid.xml'], label=f'{root}/grid', ctx=ctx
-            )
+            results, grid_task = await collect([
+                get_results(dft_task['results.xml'], label=f'{root}/results'),
+                get_grid(dft_task['grid.xml'], label=f'{root}/grid')
+            ])
             data['solids'].append((
-                label, scale, 'crystal',
-                results_task.result if results_task.finished else None,
-                str(grid_task.outputs['grid.h5']) if grid_task.finished else None,
+                label, scale, 'crystal', results,
+                str(grid_task['grid.h5'].path) if grid_task else None,
             ))
             for atom in atoms:
                 data['solids'].append((label, scale, atom, None, None))
@@ -166,34 +182,33 @@ def get_solids(ctx):
         .DataFrame(data['solids'], columns='label scale fragment data gridfile'.split()) \
         .set_index('label scale fragment'.split())
     for species in all_atoms:
-        atom = df_atoms.loc[species]
-        conf = atom.configuration
+        atom_row = df_atoms.loc[species]
+        conf = atom_row.configuration
         while conf[0] == '[':
             conf = df_atoms.loc[conf[1:3]].configuration + '/' + conf[4:]
-        geom = geomlib.Molecule([Atom(atom.name, (0, 0, 0))])
+        geom = geomlib.Molecule([Atom(atom_row.name, (0, 0, 0))])
         force_occ_tags = get_force_occs(conf.split('/'))
         for conf, force_occ_tag in force_occ_tags.items():
-            label = f'atoms/{atom.name}/{conf}'
+            label = f'solids/atoms/{atom_row.name}/{conf}'
             tags = {
                 **default_tags,
                 **atom_tags,
                 'force_occupation_basis': force_occ_tag
             }
-            dft_task = ctx(
-                features=[aims, join_grids],
+            dft_task = await aims.task(
                 geom=geom,
                 aims=aims_binary,
                 basis='tight',
                 tier=3,
                 tags=tags,
                 label=label,
+                extra_feat=[join_grids],
             )
-            results_task = get_results(
-                dft_task.outputs['results.xml'], label=f'{label}/results', ctx=ctx
-            )
+            results, = await collect([
+                get_results(dft_task['results.xml'], label=f'{label}/results')
+            ])
             data['atoms'].append((
-                atom.Z, atom.name, atom.configuration, conf,
-                results_task.result if results_task.finished else None,
+                atom_row.Z, atom_row.name, atom_row.configuration, conf, results,
             ))
     data['atoms'] = pd \
         .DataFrame(data['atoms'], columns='Z symbol full_conf conf data'.split()) \
@@ -201,14 +216,14 @@ def get_solids(ctx):
     return data, ds
 
 
-@function_task
+@dir_python.function_task
 def get_results(output):
     from mbdvv.aimsparse import parse_xml
 
     return parse_xml(output)
 
 
-@function_task
+@dir_python.function_task
 def get_grid(gridfile):
     from mbdvv.aimsparse import parse_xml
     import pandas as pd
