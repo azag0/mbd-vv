@@ -250,7 +250,7 @@ def all_mbd_variants(calc, data, variants):
 
 def calculate_solids(variants):
     with app.context():
-        dfs_dft, ds = app.get_route('solids')
+        dfs_dft, ds = app.get('solids')
     atom_enes = (
         dfs_dft['atoms'].set_index('conf', append='True').data
         .apply(lambda y: y['energy'][0]['value'][0] if y else None, 1)
@@ -325,7 +325,7 @@ def add_group(x, ds):
 
 def calculate_s66(variants):
     with app.context():
-        df_dft, ds = app.get_route('s66')
+        df_dft, ds = app.get('s66')
     df = []
     with MBDCalc(4) as mbd_calc:
         for (*key, fragment), data, _ in tqdm(list(df_dft.itertuples())):

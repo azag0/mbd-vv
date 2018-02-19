@@ -47,7 +47,6 @@ solids_tags = dict(
 )
 
 app = Caf()
-app.init()
 app.paths = [
     'solids/<>/*/*',
     'solids/<>/*/*/<>',
@@ -56,11 +55,11 @@ app.paths = [
     's66/*/*',
     's66/*/*/<>',
 ]
-cellar = Cellar(app, hook=True)
+cellar = Cellar(app)
 dir_bash = DirBashExecutor(app, cellar)
 dir_python = DirPythonExecutor(app, cellar)
-Scheduler(cellar, hook=True)
-aims = AimsTask(dir_bash=dir_bash)
+Scheduler(cellar)
+aims = AimsTask(dir_bash)
 
 
 def join_grids(task):
@@ -84,12 +83,12 @@ async def get_dataset(ds):
     return data, ds
 
 
-@app.register_route('s22')
+@app.route('s22')
 async def get_s22_set():
     return await get_dataset(get_s22())
 
 
-@app.register_route('s66')
+@app.route('s66')
 async def get_s66_set():
     return await get_dataset(get_s66x8())
 
@@ -116,7 +115,7 @@ async def taskgen(dsname, key, fragment, geom):
     )
 
 
-@app.register_route('solids')
+@app.route('solids')
 async def get_solids():
     df_solids = pd.read_csv(
         resource_stream(__name__, 'data/solids.csv'),

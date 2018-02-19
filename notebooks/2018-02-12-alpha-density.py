@@ -37,7 +37,7 @@ def alpha_kin(x):
 
 
 with app.context():
-    filename = app.get_route('s66')[0].loc(0)['Water ... Water', 1.0, 'fragment-1'].gridfile
+    filename = app.get('s66')[0].loc(0)['Water ... Water', 1.0, 'fragment-1'].gridfile
 
 
 # In[5]:
@@ -67,7 +67,7 @@ ax.bar(binmids[subsums.index-1], subsums, bins[1]-bins[0]);
 
 
 with app.context():
-    df = app.get_route('solids')[0]['solids']
+    df = app.get('solids')[0]['solids']
 
 
 # In[8]:
