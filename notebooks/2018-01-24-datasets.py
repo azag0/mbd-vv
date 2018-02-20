@@ -5,6 +5,7 @@
 
 
 from mbdvv.app import app, kcal, ev
+from mbdvv.utils import last, listify, chunks
 from pymbd import MBDCalc, from_volumes, ang, vdw_params, get_kgrid
 
 from scipy.special import erf
@@ -21,29 +22,6 @@ pd.options.display.max_rows = 999
 
 from matplotlib import pyplot as plt
 get_ipython().run_line_magic('config', "InlineBackend.figure_format = 'svg'")
-
-
-# In[2]:
-
-
-def last(obj):
-    if not isinstance(obj, list):
-        return obj
-    assert len(obj) == 2
-    return obj[-1]
-
-def listify(obj):
-    if isinstance(obj, list):
-        return obj
-    return [obj]
-
-def chunks(iterable, n):
-    iterable = iter(iterable)
-    while True:
-        chunk = list(islice(iterable, n))
-        if not chunk:
-            break
-        yield chunk
 
 
 # In[3]:

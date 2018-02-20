@@ -1,10 +1,11 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[2]:
 
 
 from mbdvv.app import app
+from mbdvv.physics import reduced_grad, alpha_kin
 
 import numpy as np
 from glob import glob
@@ -21,16 +22,6 @@ get_ipython().run_line_magic('config', "InlineBackend.figure_format = 'svg'")
 
 def savefig(fig, name, ext='pdf', **kwargs):
     fig.savefig(f'../media/{name}.{ext}', transparent=True, bbox_inches='tight', **kwargs)
-
-
-# In[3]:
-
-
-def reduced_grad(x):
-    return x.rho_grad_norm/(2*(3*np.pi**2)**(1/3)*x.rho*(4/3))
-
-def alpha_kin(x):
-    return (x.kin_dens-x.rho_grad_norm**2/(8*x.rho))/(3/10*(3*np.pi**2)**(2/3)*x.rho**(5/3))
 
 
 # In[4]:
