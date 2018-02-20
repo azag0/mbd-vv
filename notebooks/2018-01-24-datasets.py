@@ -4,7 +4,7 @@
 # In[1]:
 
 
-from mbdvv import app, kcal, ev
+from mbdvv.app import app, kcal, ev
 from pymbd import MBDCalc, from_volumes, ang, vdw_params, get_kgrid
 
 from scipy.special import erf
@@ -17,9 +17,9 @@ from functools import partial
 from pkg_resources import resource_stream
 from tqdm import tqdm
 import re
+pd.options.display.max_rows = 999
 
 from matplotlib import pyplot as plt
-get_ipython().run_line_magic('matplotlib', 'inline')
 get_ipython().run_line_magic('config', "InlineBackend.figure_format = 'svg'")
 
 

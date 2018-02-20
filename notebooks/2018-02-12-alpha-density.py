@@ -4,15 +4,15 @@
 # In[1]:
 
 
-from mbdvv import app
+from mbdvv.app import app
 
 import numpy as np
 from glob import glob
 import pandas as pd
 from math import ceil
+pd.options.display.max_rows = 999
 
 from matplotlib import pyplot as plt
-get_ipython().run_line_magic('matplotlib', 'inline')
 get_ipython().run_line_magic('config', "InlineBackend.figure_format = 'svg'")
 
 
@@ -82,7 +82,7 @@ all_points = pd.concat(
 # In[9]:
 
 
-all_points.to_hdf('../data/grid-points.h5', 'grid_points')
+all_points.to_hdf('../data/grid-points.h5', 'solids')
 
 
 # In[10]:
@@ -123,4 +123,64 @@ fig.tight_layout()
 
 
 savefig(fig, 'alpha-rgrad-hists')
+
+
+# In[14]:
+
+
+reduced_grad(all_points).groupby('level').describe()
+
+
+# In[15]:
+
+
+with app.context():
+    df = app.get('s66')[0]
+
+
+# In[16]:
+
+
+all_points = pd.concat(
+    dict(df.gridfile.loc[:, 1., 'complex'].apply(lambda x: pd.read_hdf(x) if x else None)),
+    names=('level', 'i_point')
+)
+
+
+# In[17]:
+
+
+all_points.to_hdf('../data/grid-points.h5', 's66')
+
+
+# In[18]:
+
+
+bins = np.linspace(0, 1, 50)
+binmids = (bins[1:]+bins[:-1])/2 
+subsums = (
+    all_points
+    .assign(
+        vv_pol_w=lambda x: x.vv_pol*x.part_weight,
+        binidx=lambda x: np.digitize(reduced_grad(x).clip(bins[0]+1e-10, bins[-1]-1e-10), bins),
+    ).groupby('level binidx'.split())
+    .apply(lambda x: x.vv_pol_w.sum())
+)
+
+
+# In[19]:
+
+
+nrow = 4
+fig, axes = plt.subplots(ceil(len(subsums.index.levels[0])/5), 5, figsize=(10, 8))
+for ax, (label, df) in zip((ax for ax_row in axes for ax in ax_row), subsums.groupby('level')):
+    ax.bar(binmids[df.index.get_level_values('binidx')-1], df, bins[1]-bins[0])
+    ax.set_title(label)
+fig.tight_layout()
+
+
+# In[20]:
+
+
+reduced_grad(all_points).groupby('level').describe()
 
