@@ -6,7 +6,6 @@ from pkg_resources import resource_stream
 
 from caf.cellar import Cellar, collect
 from caf.executors import DirBashExecutor, DirPythonExecutor
-from caf.scheduler import Scheduler
 from caf.Tools import geomlib
 from caf.Tools.geomlib import Atom
 from caf.Tools.aims import AimsTask
@@ -58,7 +57,6 @@ app.paths = [
 cellar = Cellar(app)
 dir_bash = DirBashExecutor(app, cellar)
 dir_python = DirPythonExecutor(app, cellar)
-Scheduler(cellar)
 aims = AimsTask(dir_bash)
 
 
