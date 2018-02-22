@@ -1,6 +1,5 @@
-venv
-notebooks
-patches
-_atsol
-data
-media
+/notebooks/
+/patches/
+/data/
+/media/
+/pub/
