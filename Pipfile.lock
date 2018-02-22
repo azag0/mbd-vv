@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f300244f6c47aee5b4e9d01f72c7161ea4e8a5f9be2f39d0165ede81f23e1114"
+            "sha256": "a3c586b893f76466ae92b0b033d7f4c70147e253ed4d9419802bc07294657f17"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -27,13 +27,13 @@
         ]
     },
     "default": {
-        "1e60966": {
+        "268e117": {
             "editable": true,
-            "path": "_caf"
+            "path": "./_caf"
         },
         "31b22f4": {
             "editable": true,
-            "path": "_vdwsets"
+            "path": "./_vdwsets"
         },
         "e1839a8": {
             "editable": true,
