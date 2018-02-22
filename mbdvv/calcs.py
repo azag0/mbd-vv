@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 from itertools import combinations
 import re
 from pkg_resources import resource_stream
@@ -61,6 +59,7 @@ def join_grids(task):
 
 
 async def get_dataset(ds):
+    import pandas as pd
     ds.load_geoms()
     coros = []
     for key, cluster in ds.clusters.items():
@@ -107,6 +106,9 @@ async def taskgen(dsname, key, fragment, geom):
 
 @app.route('solids')
 async def get_solids():
+    import numpy as np
+    import pandas as pd
+
     df_solids = pd.read_csv(
         resource_stream(__name__, 'data/solids.csv'),
         index_col='label scale'.split()
