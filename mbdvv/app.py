@@ -1,7 +1,6 @@
-from caf.cellar import Cellar
+from caf import Caf, Cellar
 from caf.executors import DirBashExecutor, DirPythonExecutor
 from caf.Tools.aims import AimsTask
-from caf import Caf
 
 kcal = 627.503
 ev = 27.2113845

@@ -2,7 +2,8 @@ from itertools import combinations
 import re
 from pkg_resources import resource_stream
 
-from caf.cellar import collect
+from caf import collect
+from caf.app import UnfinishedTask
 from caf.Tools import geomlib
 from caf.Tools.geomlib import Atom
 from vdwsets import get_s22, get_s66x8, Dataset, Cluster
@@ -19,7 +20,8 @@ app.paths.extend([
     's66/*/*/<>',
 ])
 
-aims_binary = 'aims-138e95e'
+aims_binary = 'aims-c68bd2f'
+aims_binary_atoms = 'aims-138e95e'
 default_tags = dict(
     xc='pbe',
     spin='none',
@@ -66,6 +68,7 @@ async def get_dataset(ds):
         for fragment, geom in cluster.fragments.items():
             coros.append(taskgen(ds.name.lower(), key, fragment, geom))
     data = await collect(coros)
+    data = [x for x in data if x is not None]
     data = pd \
         .DataFrame(data, columns='label scale fragment data gridfile'.split()) \
         .set_index('label scale fragment'.split())
@@ -104,6 +107,33 @@ async def taskgen(dsname, key, fragment, geom):
     )
 
 
+async def taskgen_solids(geom, tags, root, data, ds, label, scale, atoms):
+    dft_task = await aims.task(
+        geom=geom,
+        aims=aims_binary,
+        basis='tight',
+        tier=2,
+        tags=tags,
+        label=root,
+        extra_feat=[join_grids],
+    )
+    results, grid_task = await collect([
+        get_results(dft_task['results.xml'], label=f'{root}/results'),
+        get_grid(dft_task['grid.xml'], label=f'{root}/grid')
+    ])
+    data['solids'].append((
+        label, scale, 'crystal', results,
+        str(grid_task['grid.h5'].path) if grid_task else None,
+    ))
+    for atom in atoms:
+        data['solids'].append((label, scale, atom, None, None))
+    ds[label, scale] = Cluster(
+        intene=lambda x, species=geom.species: (
+            x['crystal']-sum(x[sp] for sp in species)
+        )/len(species)
+    )
+
+
 @app.route('solids')
 async def get_solids():
     import numpy as np
@@ -120,6 +150,7 @@ async def get_solids():
     ds = Dataset('solids', df_solids)
     all_atoms = set()
     data = {'solids': [], 'atoms': []}
+    coros = []
     for solid in df_solids.itertuples():
         label = solid.Index[0]
         if label == 'Th':
@@ -145,30 +176,8 @@ async def get_solids():
             lattice *= scale
             geom = get_crystal(solid.structure, lattice, atoms)
             root = f'solids/crystals/{label}/{scale}'
-            dft_task = await aims.task(
-                geom=geom,
-                aims=aims_binary,
-                basis='tight',
-                tier=2,
-                tags=tags,
-                label=root,
-                extra_feat=[join_grids],
-            )
-            results, grid_task = await collect([
-                get_results(dft_task['results.xml'], label=f'{root}/results'),
-                get_grid(dft_task['grid.xml'], label=f'{root}/grid')
-            ])
-            data['solids'].append((
-                label, scale, 'crystal', results,
-                str(grid_task['grid.h5'].path) if grid_task else None,
-            ))
-            for atom in atoms:
-                data['solids'].append((label, scale, atom, None, None))
-            ds[label, scale] = Cluster(
-                intene=lambda x, species=geom.species: (
-                    x['crystal']-sum(x[sp] for sp in species)
-                )/len(species)
-            )
+            coros.append(taskgen_solids(geom, tags, root, data, ds, label, scale, atoms))
+    await collect(coros)
     data['solids'] = pd \
         .DataFrame(data['solids'], columns='label scale fragment data gridfile'.split()) \
         .set_index('label scale fragment'.split())
@@ -186,15 +195,18 @@ async def get_solids():
                 **atom_tags,
                 'force_occupation_basis': force_occ_tag
             }
-            dft_task = await aims.task(
-                geom=geom,
-                aims=aims_binary,
-                basis='tight',
-                tier=3,
-                tags=tags,
-                label=label,
-                extra_feat=[join_grids],
-            )
+            try:
+                dft_task = await aims.task(
+                    geom=geom,
+                    aims=aims_binary_atoms,
+                    basis='tight',
+                    tier=3,
+                    tags=tags,
+                    label=label,
+                    extra_feat=[join_grids],
+                )
+            except UnfinishedTask:
+                continue
             results, = await collect([
                 get_results(dft_task['results.xml'], label=f'{label}/results')
             ])

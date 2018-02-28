@@ -12,19 +12,19 @@ numpy = "*"
 pandas = "*"
 "31b22f4" = {path = "./_vdwsets", editable = true}
 "e1839a8" = {path = ".", editable = true}
+tables = "*"
 
 
 [dev-packages]
 
 cffi = "*"
-"5016490" = {path = "/Users/hermann/Code/pymbd", editable = true}
+pymbd = {git = "https://github.com/azag0/pymbd.git", editable = true, ref = "1b474f22fc1028639eaeefb04981ad41fae34be3"}
 scipy = "*"
 tqdm = "*"
 matplotlib = "*"
 mypy = "*"
 ipykernel = "*"
 lxml = "*"
-tables = "*"
 "flake8" = "*"
 "jinja2" = "*"
 pyyaml = "*"
