@@ -6,7 +6,7 @@ from caf import collect
 from caf.app import UnfinishedTask
 from caf.Tools import geomlib
 from caf.Tools.geomlib import Atom
-from vdwsets import get_s22, get_s66x8, Dataset, Cluster
+from vdwsets import get_x23, get_s66x8, Dataset, Cluster
 
 from .app import app, aims, dir_python
 from .utils import chunks
@@ -14,8 +14,8 @@ from .utils import chunks
 app.paths.extend([
     'solids/<>/*/*',
     'solids/<>/*/*/<>',
-    's22/*/*',
-    's22/*/*/<>',
+    'x23/*/*',
+    'x23/*/*/<>',
     's66/*/*',
     's66/*/*/<>',
 ])
@@ -75,9 +75,9 @@ async def get_dataset(ds):
     return data, ds
 
 
-@app.route('s22')
-async def get_s22_set():
-    return await get_dataset(get_s22())
+@app.route('x23')
+async def get_x23_set():
+    return await get_dataset(get_x23())
 
 
 @app.route('s66')
@@ -88,13 +88,16 @@ async def get_s66_set():
 async def taskgen(dsname, key, fragment, geom):
     key_label = '_'.join(map(lambda k: str(k).lower().replace(' ', '-'), key))
     label = f'{dsname}/{key_label}/{fragment}'
+    tags = default_tags.copy()
+    if hasattr(geom, 'lattice'):
+        tags['k_grid'] = geom.get_kgrid(0.8)
     dft_task = await aims.task(
         geom=geom,
         basis='tight',
         aims=aims_binary,
         tier=2,
         label=label,
-        tags=default_tags,
+        tags=tags,
         extra_feat=[join_grids],
     )
     results, grid_task = await collect([
