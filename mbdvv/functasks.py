@@ -32,15 +32,17 @@ def integrate_atomic_vv():
     rgrad_cutoff = partial(terf, k=60, x0=0.07)
     with MBDCalc(4) as mbd_calc:
         freq = mbd_calc.omega_grid[0]
-    (
-        pd
-        .concat(
-            dict(df.gridfile.apply(lambda x: pd.read_hdf(x) if x else None)),
-            names='label scale fragment i_point'.split()
+
+    def f(x):
+        return (
+            pd
+            .concat(
+                dict(x.apply(lambda x: pd.read_hdf(x) if x else None)),
+                names='label scale fragment i_point'.split()
+            )
+            .assign(rgrad=reduced_grad)
+            .set_index('i_atom', append=True)
+            .pipe(calc_vvpol, freq, rgrad_cutoff)
+            .groupby('scale fragment i_atom'.split()).sum()
         )
-        .assign(rgrad=reduced_grad)
-        .set_index('i_atom', append=True)
-        .pipe(calc_vvpol, freq, rgrad_cutoff)
-        .groupby('scale fragment i_atom'.split()).sum()
-        .to_hdf('alpha.h5', 'alpha')
-    )
+    df.gridfile.groupby('label').apply(f).to_hdf('alpha.h5', 'alpha')
