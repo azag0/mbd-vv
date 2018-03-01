@@ -8,8 +8,9 @@ from caf.Tools import geomlib
 from caf.Tools.geomlib import Atom
 from vdwsets import get_x23, get_s66x8, Dataset, Cluster
 
-from .app import app, aims, dir_python
+from .app import app, aims
 from .utils import chunks
+from .functasks import get_results, get_grid, integrate_atomic_vv
 
 
 aims_binary = 'aims-c68bd2f'
@@ -74,7 +75,9 @@ async def get_x23_set():
 
 @app.route('s66')
 async def get_s66_set():
-    return await get_dataset(get_s66x8())
+    data, ds = await get_dataset(get_s66x8())
+    alpha, = await collect(integrate_atomic_vv(label='s66/vv'))
+    return data, ds, alpha
 
 
 async def taskgen(dsname, key, fragment, geom):
@@ -212,24 +215,6 @@ async def get_solids():
         .DataFrame(data['atoms'], columns='Z symbol full_conf conf data'.split()) \
         .set_index('symbol')
     return data, ds
-
-
-@dir_python.function_task
-def get_results(output):
-    from mbdvv.aimsparse import parse_xml
-
-    return parse_xml(output)
-
-
-@dir_python.function_task
-def get_grid(gridfile):
-    from mbdvv.aimsparse import parse_xml
-    import pandas as pd
-
-    data = parse_xml(gridfile)['point']
-    keys = [k for k in data[0] if k not in {'dweightdr', 'dweightdh'}]
-    df = pd.DataFrame([[pt[k][0] for k in keys] for pt in data], columns=keys)
-    df.to_hdf('grid.h5', 'grid')
 
 
 def get_force_occs(conf):

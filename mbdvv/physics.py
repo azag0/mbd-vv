@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import erf
+import pandas as pd
 
 
 def reduced_grad(x):
@@ -19,3 +20,21 @@ def terf(x, *, k, x0):
 
 def vv_pol(n, grad, C=0.0093, u=0.):
     return n/(4*np.pi/3*n+C*(grad/n)**4+u**2)
+
+
+def calc_vvpol(x, freq, rgrad_cutoff):
+    idx = x.index
+    n = x.rho.values
+    grad = x.rho_grad_norm.values
+    w = x.part_weight.values
+    cutoff = rgrad_cutoff(x.rgrad.values)
+    try:
+        freq = freq[:, None]
+    except TypeError:
+        pass
+    x = pd.concat(dict(
+        vvpol=pd.DataFrame((vv_pol(n, grad, u=freq)*w).T),
+        vvpol_nm=pd.DataFrame((vv_pol(n, grad, u=freq)*(w*cutoff)).T),
+    ), axis=1)
+    x.index = idx
+    return x
