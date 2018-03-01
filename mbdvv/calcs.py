@@ -11,14 +11,6 @@ from vdwsets import get_x23, get_s66x8, Dataset, Cluster
 from .app import app, aims, dir_python
 from .utils import chunks
 
-app.paths.extend([
-    'solids/<>/*/*',
-    'solids/<>/*/*/<>',
-    'x23/*/*',
-    'x23/*/*/<>',
-    's66/*/*',
-    's66/*/*/<>',
-])
 
 aims_binary = 'aims-c68bd2f'
 aims_binary_atoms = 'aims-138e95e'
@@ -67,7 +59,7 @@ async def get_dataset(ds):
     for key, cluster in ds.clusters.items():
         for fragment, geom in cluster.fragments.items():
             coros.append(taskgen(ds.name.lower(), key, fragment, geom))
-    data = await collect(coros)
+    data = await collect(*coros)
     data = [x for x in data if x is not None]
     data = pd \
         .DataFrame(data, columns='label scale fragment data gridfile'.split()) \
@@ -100,10 +92,10 @@ async def taskgen(dsname, key, fragment, geom):
         tags=tags,
         extra_feat=[join_grids],
     )
-    results, grid_task = await collect([
+    results, grid_task = await collect(
         get_results(dft_task['results.xml'], label=f'{label}/results'),
         get_grid(dft_task['grid.xml'], label=f'{label}/grid')
-    ])
+    )
     return (
         *key, fragment, results,
         str(grid_task['grid.h5'].path) if grid_task else None
@@ -120,10 +112,10 @@ async def taskgen_solids(geom, tags, root, data, ds, label, scale, atoms):
         label=root,
         extra_feat=[join_grids],
     )
-    results, grid_task = await collect([
+    results, grid_task = await collect(
         get_results(dft_task['results.xml'], label=f'{root}/results'),
         get_grid(dft_task['grid.xml'], label=f'{root}/grid')
-    ])
+    )
     data['solids'].append((
         label, scale, 'crystal', results,
         str(grid_task['grid.h5'].path) if grid_task else None,
@@ -180,7 +172,7 @@ async def get_solids():
             geom = get_crystal(solid.structure, lattice, atoms)
             root = f'solids/crystals/{label}/{scale}'
             coros.append(taskgen_solids(geom, tags, root, data, ds, label, scale, atoms))
-    await collect(coros)
+    await collect(*coros)
     data['solids'] = pd \
         .DataFrame(data['solids'], columns='label scale fragment data gridfile'.split()) \
         .set_index('label scale fragment'.split())
@@ -210,9 +202,9 @@ async def get_solids():
                 )
             except UnfinishedTask:
                 continue
-            results, = await collect([
+            results, = await collect(
                 get_results(dft_task['results.xml'], label=f'{label}/results')
-            ])
+            )
             data['atoms'].append((
                 atom_row.Z, atom_row.name, atom_row.configuration, conf, results,
             ))
