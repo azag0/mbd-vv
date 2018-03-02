@@ -1,6 +1,8 @@
 
 # coding: utf-8
 
+# ## Intro
+
 # In[ ]:
 
 
@@ -71,6 +73,7 @@ def ds_stat(x):
         'MARE': abs(x['reldelta']).mean(),
         'MdRE': x['reldelta'].median(),
         'MdARE': abs(x['reldelta']).median(),
+        'SDRE': abs(x['reldelta']).std(),
         'ME': x['delta'].mean(),
         'MAE': abs(x['delta']).mean(),
     }))
@@ -80,6 +83,12 @@ def splice_key(df, indexes):
         label=lambda x: x.key.map(lambda y: y[0]),
         scale=lambda x: x.key.map(lambda y: y[1]),
     ).drop('key', 1).set_index(['label', 'scale', *indexes])
+
+def get_nk(lattice, density):
+    rec_lattice = 2*np.pi*np.linalg.inv(lattice.T)
+    rec_lens = np.sqrt((rec_lattice**2).sum(1))
+    nkpts = np.ceil(rec_lens/(density/ang**2))
+    return int(nkpts[0]), int(nkpts[1]), int(nkpts[2])
 
 
 # ### MBD functions
@@ -236,6 +245,24 @@ plot_binned(_ax, _bins, _subsums.vv_pol);
 
 
 with app.context():
+    _fname = app.get('x23')[0] .loc(0)['Benzene', 1.0, 'crystal'].gridfile
+    
+pd.read_hdf(_fname).loc[lambda x: x.rho > 0].pipe(reduced_grad).loc[lambda x: x < 1].hist(bins=100); 
+
+
+# In[ ]:
+
+
+_bins = np.linspace(0, 1, 100)
+_subsums = bin_alpha_vv(pd.read_hdf(_fname), _bins)
+_fig, _ax = plt.subplots()
+plot_binned(_ax, _bins, _subsums.vv_pol);
+
+
+# In[ ]:
+
+
+with app.context():
     _df, _ds = app.get('solids')
 _df = _df['solids']
 
@@ -292,11 +319,6 @@ savefig(_fig, 'alpha-rgrad-hists')
 # In[ ]:
 
 
-def add_group(x, ds):
-    print(x)
-    return x.assign(group=ds.df.loc(0)[x.name].group)
-
-
 def get_atomic_quants():
     with app.context():
         dfs_dft, ds = app.get('solids')
@@ -304,7 +326,6 @@ def get_atomic_quants():
         freq_w = mbd_calc.omega_grid[0].copy()
         alpha_vv = (
             solids_pts
-            .assign(rgrad=reduced_grad)
             .set_index('i_atom', append=True)
             .pipe(calc_vvpol, freq_w, rgrad_cutoff)
             .groupby('label i_atom'.split()).sum()
@@ -364,12 +385,13 @@ _df.to_csv('../results/solids-vdw-params.csv')
 
 def get_atomic_quants():
     with app.context():
-        df_dft, ds, _ = app.get('s66')
+        df_dft, ds, alpha_vv = app.get('s66')
+        alpha_vv = pd.read_hdf(alpha_vv['alpha.h5'].path)
     df = []
     for (*key, fragment), data, _ in df_dft.loc(0)[:, 1.].itertuples():
         if fragment != 'complex':
             continue
-        df_alpha_vv = s66_alpha_vv.loc(0)[(*key, fragment)]
+        df_alpha_vv = alpha_vv.loc(0)[(*key, fragment)]
         species = listify(data['elems']['atom'])
         free_atoms = last(data['free_atoms'])
         species_idx = free_atoms['species']-1
@@ -418,7 +440,7 @@ def mbd_from_data(calc, data, beta, vv_scale=None, vvpol=None,
         return np.nan
     coords = data['coords']['value'].T
     species = listify(data['elems']['atom'])
-    lattice = data['lattice_vector']['value'] if 'lattice_vector' in data else None
+    lattice = data['lattice_vector']['value'].T if 'lattice_vector' in data else None
     volumes = last(data['volumes'])
     if vv_py:
         alpha_vv = data['alpha_vv'].vv_pol.values.T
@@ -482,8 +504,14 @@ def mbd_from_data(calc, data, beta, vv_scale=None, vvpol=None,
     )
     return ene-ene_mtl
 
-def all_mbd_variants(calc, data, variants):
-    k_grid = np.repeat(4, 3) if 'lattice_vector' in data else None
+def all_mbd_variants(calc, data, variants, kdensity=None):
+    if 'lattice_vector' in data:
+        if kdensity is None:
+            k_grid = np.repeat(4, 3)
+        else:
+            k_grid = get_nk(data['lattice_vector']['value'], kdensity)
+    else:
+        k_grid = None
     enes = []
     for kwargs in variants:
         kwargs = kwargs.copy()
@@ -511,6 +539,8 @@ def get_variant_label(flags):
             inner.append('17base')
         elif k == 'scale_eigs' and not v:
             inner.append('noeigscale')
+        elif k == 'throw':
+            pass
         else:
             raise ValueError(k, v)
     return f'MBD({",".join(inner)})'
@@ -610,10 +640,13 @@ _res
 # In[ ]:
 
 
-def calculate_s66(variants):
+def calculate_ds(dsname, variants, alpha_vv=None):
     with app.context():
-        df_dft, ds, alpha_vv = app.get('s66')
-    alpha_vv = pd.read_hdf(alpha_vv['alpha.h5'].path)
+        if alpha_vv is None:
+            df_dft, ds, alpha_vv = app.get(dsname)
+            alpha_vv = pd.read_hdf(alpha_vv['alpha.h5'].path)
+        else:
+            df_dft, ds = app.get(dsname)
     df = []
     with MBDCalc(4) as mbd_calc:
         for (*key, fragment), data, _ in tqdm(list(df_dft.itertuples())):
@@ -625,7 +658,7 @@ def calculate_s66(variants):
                 continue
             pbe_ene = data['energy'][0]['value'][0]
             df.append((*key, fragment, 'PBE', pbe_ene))
-            enes = all_mbd_variants(mbd_calc, data, variants)
+            enes = all_mbd_variants(mbd_calc, data, variants, kdensity=0.8)
             enes = {get_variant_label(v): ene for v, ene in zip(variants, enes)}
             for mbd_label, ene in enes.items():
                 df.append((*key, fragment, mbd_label, ene))
@@ -666,7 +699,7 @@ _variants = [
     {'vvpol': 'nm', 'corr': True, 'beta': 0.79, 'vdw17base': True, 'vdw': 'BG'},
     {'vvpol': 'nm', 'corr': True, 'beta': 0.8, 'vdw17': True},
 ]
-_df , _ds = calculate_s66(_variants)
+_df , _ds = calculate_ds('s66', _variants)
 
 
 # In[ ]:
@@ -675,4 +708,59 @@ _df , _ds = calculate_s66(_variants)
 _res = analyse_s66(_df, _ds).round(4)
 _res.to_csv('../results/s66-energies.csv')
 _res
+
+
+# ### X23
+
+# In[ ]:
+
+
+with app.context():
+    _df, _ = app.get('x23')
+with MBDCalc(4) as _mbd_calc:
+    _freq = _mbd_calc.omega_grid[0]
+def _f(x):
+    return (
+        pd
+        .concat(
+            dict(x.apply(lambda x: pd.read_hdf(x) if x else None)),
+            names='label scale fragment i_point'.split()
+        )
+        .set_index('i_atom', append=True)
+        .pipe(calc_vvpol, _freq, rgrad_cutoff)
+        .groupby('scale fragment i_atom'.split()).sum()
+    )
+x23_alpha_vv = _df.gridfile.groupby('label').apply(_f)
+
+
+# In[ ]:
+
+
+_variants = [
+    {'scs': True},
+    {'vvpol': 'nm', 'beta': 0.8},
+    {'vvpol': 'nm', 'corr': True, 'beta': 0.8},
+    {'vvpol': '', 'corr': True, 'beta': 0.8},
+    {'vvpol': 'nm', 'corr': True, 'beta': 0.8, 'vdw17base': True},
+    {'vvpol': 'nm', 'corr': True, 'beta': 0.8, 'vdw': 'BG'},
+    {'vvpol': 'nm', 'corr': True, 'beta': 0.8, 'vdw17base': True, 'vdw': 'BG'},
+    {'vvpol': 'nm', 'corr': True, 'beta': 0.81, 'vdw17base': True, 'vdw': 'BG'},
+    {'vvpol': 'nm', 'corr': True, 'beta': 0.79, 'vdw17base': True, 'vdw': 'BG'},
+    {'vvpol': 'nm', 'corr': True, 'beta': 0.8, 'vdw17': True},
+]
+_df , _ds = calculate_ds('x23', _variants, x23_alpha_vv)
+
+
+# In[ ]:
+
+
+(
+    _df
+    .groupby('label scale'.split()).apply(ene_int, _ds)
+    .apply(ene_dft_vdw, 1).stack(dropna=False)
+    .pipe(lambda x: x*kcal).to_frame('ene')
+    .groupby('label scale'.split()).apply(ref_delta, _ds)
+    .groupby('method scale'.split()).apply(ds_stat)
+    # .loc(0)[:, :, ['PBE+MBD(scs)', 'PBE+MBD(vvpol[nm],corr,beta[0.8],17base)']]
+)
 
