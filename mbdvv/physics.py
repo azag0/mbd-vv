@@ -27,7 +27,7 @@ def calc_vvpol(x, freq, rgrad_cutoff):
     n = x.rho.values
     grad = x.rho_grad_norm.values
     w = x.part_weight.values
-    cutoff = rgrad_cutoff(x.rgrad.values)
+    cutoff = rgrad_cutoff(reduced_grad(x).values)
     try:
         freq = freq[:, None]
     except TypeError:

@@ -25,7 +25,7 @@ def integrate_atomic_vv():
     import pandas as pd
     from functools import partial
     from mbdvv.app import app
-    from mbdvv.physics import terf, calc_vvpol, reduced_grad
+    from mbdvv.physics import terf, calc_vvpol
 
     with app.context():
         df = app.get('s66')[0]
@@ -40,7 +40,6 @@ def integrate_atomic_vv():
                 dict(x.apply(lambda x: pd.read_hdf(x) if x else None)),
                 names='label scale fragment i_point'.split()
             )
-            .assign(rgrad=reduced_grad)
             .set_index('i_atom', append=True)
             .pipe(calc_vvpol, freq, rgrad_cutoff)
             .groupby('scale fragment i_atom'.split()).sum()

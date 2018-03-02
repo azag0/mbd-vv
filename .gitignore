@@ -2,5 +2,5 @@
 /.caf/
 /build/
 *.egg-info/
-/data/
-*.svgz
+/data
+/media/*.svgz
