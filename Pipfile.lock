@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "debe539c3df25188ca2f93766f1162287b4253d5eef51b2cd84ca48e0a3ae438"
+            "sha256": "d4ca56054a3b10d0fb8788670c83e8b2a0fb1f4ec698b574c2eccd53afae5449"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -494,7 +494,7 @@
         "pymbd": {
             "editable": true,
             "git": "https://github.com/azag0/pymbd.git",
-            "ref": "64b016d7d033cc754ac75d7dc44d466800ba2381"
+            "ref": "471020e882a775d5164315cce62ef70cb7d53bd5"
         },
         "pyparsing": {
             "hashes": [

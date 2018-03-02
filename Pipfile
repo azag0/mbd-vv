@@ -18,7 +18,7 @@ tables = "*"
 [dev-packages]
 
 cffi = "*"
-pymbd = {git = "https://github.com/azag0/pymbd.git", editable = true, ref = "64b016d7d033cc754ac75d7dc44d466800ba2381"}
+pymbd = {git = "https://github.com/azag0/pymbd.git", editable = true, ref = "471020e882a775d5164315cce62ef70cb7d53bd5"}
 scipy = "*"
 tqdm = "*"
 matplotlib = "*"
