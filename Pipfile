@@ -13,12 +13,12 @@ pandas = "*"
 "31b22f4" = {path = "./_vdwsets", editable = true}
 "e1839a8" = {path = ".", editable = true}
 tables = "*"
+pymbd = {git = "https://github.com/azag0/pymbd.git", editable = true, ref = "e02a56e50c911745f630487ac788435f0b1daa11"}
 
 
 [dev-packages]
 
 cffi = "*"
-pymbd = {git = "https://github.com/azag0/pymbd.git", editable = true, ref = "471020e882a775d5164315cce62ef70cb7d53bd5"}
 scipy = "*"
 tqdm = "*"
 matplotlib = "*"
