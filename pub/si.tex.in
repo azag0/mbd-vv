@@ -1,0 +1,22 @@
+\input{preamble.tex}
+
+\title{<< title >> (Supplementary Information)}
+
+\renewcommand{\thefigure}{S\arabic{figure}}
+
+\begin{document}
+
+\nocite{achemso-control}
+
+\maketitle
+
+<+ for author in authors +>
+\author[<< author[1]|join(',') + (',*' if author[2] else "") >>]{<< author[0] >>}
+<+ endfor +>
+<+ for num, affil in affils.items() +>
+\affil[<< num >>]{<< affil >>}
+<+ endfor +>
+
+[Text.]
+
+\end{document}

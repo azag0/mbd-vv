@@ -1,0 +1,31 @@
+\documentclass[twocolumn]{article}
+\usepackage[margin=0.6in,columnsep=0.15in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{stix}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[colorlinks,citecolor=Gray,urlcolor=Gray,linkcolor=Blue]{hyperref}
+\usepackage[small]{titlesec}
+
+\usepackage[normal]{caption}
+\DeclareCaptionLabelSeparator{pipe}{ $|$ }
+\captionsetup{labelsep=pipe}
+\renewcommand{\captionfont}{\small}
+\renewcommand{\captionlabelfont}{\bfseries}
+
+\usepackage[sort&compress]{natbib}
+\bibliographystyle{abbrvnat}
+\renewcommand\cite{\citep}
+\usepackage{doi}
+
+\input{packages.tex}
+
+\usepackage{authblk}
+\renewcommand\Affilfont{\itshape\small} % chktex 6
+
+\author[1]{Jan Hermann}
+\author[1,*]{Alexandre Tkatchenko}
+\affil[1]{Physics and Materials Science Research Unit, University of Luxembourg, 162A Avenue de la Faïencerie, L-1511 Luxembourg}
+
+\date{}
+
+\setcounter{secnumdepth}{0}

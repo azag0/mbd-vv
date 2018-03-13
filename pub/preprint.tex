@@ -1,0 +1,38 @@
+\input{preamble.tex}
+
+\title{[Title]}
+
+\begin{document}
+
+\nocite{achemso-control}
+
+\twocolumn[{
+  \maketitle
+  \vspace{-3em}
+  \begin{center}
+  \begin{minipage}{0.85\linewidth}
+    \small
+    \paragraph{Abstract}\input{abstract.tex}
+  \end{minipage}
+  \end{center}
+  \vspace{1em}
+}]
+
+\begingroup
+\renewcommand\thefootnote{}\footnote{$^*$Email: alexandre.tkatchenko@uni.lu}%
+\addtocounter{footnote}{-1}%
+\endgroup
+
+\input{text.tex}
+
+\subsection{Acknowledgements}
+
+\subsection{Supporting Information}
+
+\begingroup
+\setlength\bibsep{0pt}
+\footnotesize
+\bibliography{refs-zotero,refs}
+\endgroup
+
+\end{document}
