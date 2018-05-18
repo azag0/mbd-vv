@@ -10,7 +10,7 @@ from pymbd import MBDCalc, from_volumes, ang, vdw_params, get_kgrid
 
 from mbdvv.app import app, kcal, ev
 from mbdvv.utils import last, listify, chunks
-from mbdvv.physics import reduced_grad, terf, vv_pol, calc_vvpol
+from mbdvv.physics import reduced_grad, vv_pol, calc_vvpol, rgrad_cutoff, bin_alpha_vv
 
 from scipy.special import erf
 import numpy as np
@@ -117,7 +117,8 @@ def scaled_eigs(x):
 
 
 def mbd_rsscs(mbd_calc, coords, alpha_0, C6, R_vdw, beta, lattice=None,
-              k_grid=None, rpa=False, scs=False, scale_eigs=True, fortran=False):
+              k_grid=None, rpa=False, scs=False, scale_eigs=True, fortran=False,
+              ts=False, ord2=False, damping='fermi,dip', param_a=6.):
     def _array(obj, *args, **kwargs):
         if obj is not None:
             return np.array(obj, *args, **kwargs)
@@ -142,7 +143,7 @@ def mbd_rsscs(mbd_calc, coords, alpha_0, C6, R_vdw, beta, lattice=None,
             sigma = (np.sqrt(2./np.pi)*a/3)**(1./3)
             a_nlc = np.linalg.inv(
                 np.diag(np.repeat(1./a, 3)) + mbd_calc.dipole_matrix(
-                    coords, 'fermi,dip,gg', sigma=sigma, R_vdw=R_vdw,
+                    coords, damping + ',gg', sigma=sigma, R_vdw=R_vdw,
                     beta=beta, lattice=lattice,
                 )
             )
@@ -153,6 +154,8 @@ def mbd_rsscs(mbd_calc, coords, alpha_0, C6, R_vdw, beta, lattice=None,
         C6_rsscs = 3./np.pi*np.sum(freq_w[:, None]*alpha_dyn_rsscs**2, 0)
         R_vdw_rsscs = R_vdw*(alpha_0_rsscs/alpha_0)**(1./3)
         omega_rsscs = 4./3*C6_rsscs/alpha_0_rsscs**2
+    if ts:
+        return mbd_calc.ts_energy(coords, alpha_0_rsscs, C6_rsscs, R_vdw_rsscs, beta, lattice)
     pre = np.repeat(omega_rsscs*np.sqrt(alpha_0_rsscs), 3)
     if lattice is None:
         k_grid = [None]
@@ -162,7 +165,7 @@ def mbd_rsscs(mbd_calc, coords, alpha_0, C6, R_vdw, beta, lattice=None,
     ene = 0
     for k_point in k_grid:
         T = mbd_calc.dipole_matrix(
-            coords, 'fermi,dip', R_vdw=R_vdw_rsscs, beta=beta,
+            coords, damping, R_vdw=R_vdw_rsscs, beta=beta, a=param_a,
             lattice=lattice, k_point=k_point
         )
         if rpa:
@@ -174,7 +177,9 @@ def mbd_rsscs(mbd_calc, coords, alpha_0, C6, R_vdw, beta, lattice=None,
                     eigs = scaled_eigs(eigs)
                 if np.any(eigs <= -1):
                     raise NegativeEigs(k_point, u, eigs)
-                if not scale_eigs:
+                if ord2:
+                    log_eigs = -eigs**2/2
+                elif not scale_eigs:
                     log_eigs = np.log(1+eigs)
                 else:
                     log_eigs = np.log(1+eigs)-eigs
@@ -204,8 +209,6 @@ pd.read_hdf(_fname).loc[lambda x: x.rho > 0].pipe(reduced_grad).loc[lambda x: x 
 # In[ ]:
 
 
-rgrad_cutoff = partial(terf, k=60, x0=0.07)
-
 _fig, _ax = plt.subplots()
 _x = np.arange(0, 1, 0.01)
 _ax.plot(_x, rgrad_cutoff(_x));
@@ -216,28 +219,8 @@ _ax.set_xticks(np.arange(0, 1, 0.05), minor=True);
 # In[ ]:
 
 
-def bin_alpha_vv(df, bins):
-    prefix = df.index.names
-    if prefix == [None]:
-        prefix = []
-    subsums = (
-        df
-        .assign(
-            binidx=lambda x: np.digitize(reduced_grad(x).clip(bins[0]+1e-10, bins[-1]-1e-10), bins),
-        )
-        .set_index('binidx', append=True)
-        .pipe(calc_vvpol, 0, rgrad_cutoff).stack().reset_index(-1, drop=True)
-        .groupby(prefix + ['binidx'])
-        .apply(lambda x: pd.Series({'vv_pol': x.vvpol.sum(), 'vv_pol_nm': x.vvpol_nm.sum()}))
-    )
-    return subsums
-
 def plot_binned(ax, bins, y):
     return ax.bar((bins[1:]+bins[:-1])/2, y, bins[1]-bins[0])
-
-
-# In[ ]:
-
 
 _bins = np.linspace(0, 1, 100)
 _subsums = bin_alpha_vv(pd.read_hdf(_fname), _bins)
@@ -292,9 +275,26 @@ def add_group(x, ds):
     .pipe(calc_vvpol, 0, rgrad_cutoff).stack().reset_index(-1, drop=True)
     .groupby('label i_atom'.split()).sum()
     .groupby('label').apply(add_group, _ds).set_index('group', append=True)
+    .to_csv('../results/solids-vv-atom-pols.csv')
+)
+
+
+# In[ ]:
+
+
+(
+    pd.read_csv('../results/solids-vv-atom-pols.csv', index_col='label i_atom group'.split())
     .pipe(lambda x: x.vvpol_nm/x.vvpol)
     .groupby('group').describe()
 )
+
+
+# In[ ]:
+
+
+_bins = np.linspace(0, 1, 50)
+_subsums = bin_alpha_vv(solids_pts.reset_index('i_point'), _bins)
+_subsums.to_csv('../results/solids-subsums.csv')
 
 
 # In[ ]:
@@ -312,8 +312,7 @@ def plot_hist_solids(axes, bins, subsums):
             ax.legend()
     
     
-_bins = np.linspace(0, 1, 50)
-_subsums = bin_alpha_vv(solids_pts.reset_index('i_point'), _bins)
+_subsums = pd.read_csv('../results/solids-subsums.csv', index_col='label binidx'.split())
 _fig, _axes = plt.subplots(ceil(len(_subsums.index.levels[0])/4), 4, figsize=(8, 22))
 plot_hist_solids(_axes, _bins, _subsums)
 _fig.tight_layout()
@@ -440,8 +439,6 @@ _df.to_csv('../results/s66-vdw-params.csv')
 def mbd_from_data(calc, data, beta, vv_scale=None, vvpol=None,
                   corr=False, vdw17=False, vdw17base=False, vv_py=False, vdwvvscale=False,
                   vdw='TS', **kwargs):
-    if vvpol is not None and vvpol != '' and 'alpha_vv' not in data:
-        return np.nan
     coords = data['coords']['value'].T
     species = listify(data['elems']['atom'])
     lattice = data['lattice_vector']['value'].T if 'lattice_vector' in data else None
@@ -461,10 +458,14 @@ def mbd_from_data(calc, data, beta, vv_scale=None, vvpol=None,
     C6_free = np.array([vdw_params.get(sp)[f'C6({vdw})'] for sp in species])
     C6_vv = 3/np.pi*np.sum(freq_w[:, None]*alpha_vv**2, 0)
     if vvpol is not None and vvpol != '':
-        alpha_vv_nm = data['alpha_vv'].vvpol_nm.values.T
-        C6_vv_nm = 3/np.pi*np.sum(calc.omega_grid[1][:, None]*alpha_vv_nm**2, 0)
-        alpha_vv_mtl = data['alpha_vv'].vvpol.values.T-data['alpha_vv'].vvpol_nm.values.T
-        C6_vv_mtl = 3/np.pi*np.sum(calc.omega_grid[1][:, None]*alpha_vv_mtl**2, 0)
+        try:
+            alpha_vv_nm = last(data['vv_pols_nm']).copy()
+            C6_vv_nm = 3/np.pi*np.sum(freq_w[:, None]*alpha_vv_nm**2, 0)
+        except KeyError:
+            alpha_vv_nm = data['alpha_vv'].vvpol_nm.values.T
+            C6_vv_nm = 3/np.pi*np.sum(calc.omega_grid[1][:, None]*alpha_vv_nm**2, 0)
+            alpha_vv_mtl = data['alpha_vv'].vvpol.values.T-data['alpha_vv'].vvpol_nm.values.T
+            C6_vv_mtl = 3/np.pi*np.sum(calc.omega_grid[1][:, None]*alpha_vv_mtl**2, 0)
     if not vv_scale:
         volume_scale = volumes/volumes_free
     else:
@@ -533,9 +534,9 @@ def all_mbd_variants(calc, data, variants, kdensity=None):
 def get_variant_label(flags):
     inner = []
     for k, v in flags.items():
-        if k in ('rpa', 'scs', 'vdw17', 'corr', 'fortran', 'vdwvvscale') and v:
+        if k in ('rpa', 'scs', 'vdw17', 'corr', 'fortran', 'vdwvvscale', 'ts', 'ord2') and v:
             inner.append(k)
-        elif k in ('vv_scale', 'beta', 'vdw'):
+        elif k in ('vv_scale', 'beta', 'vdw', 'damping', 'param_a'):
             inner.append(f'{k}[{v}]')
         elif k == 'vvpol':
             inner.append('vvpol' + (f'[{v}]' if v else ''))

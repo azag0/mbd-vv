@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.special import erf
 import pandas as pd
+from functools import partial
 
 
 def reduced_grad(x):
@@ -16,6 +17,9 @@ def alpha_kin(x):
 
 def terf(x, *, k, x0):
     return 0.5*(erf(k*(x+x0))+erf(k*(x-x0)))
+
+
+rgrad_cutoff = partial(terf, k=60, x0=0.07)
 
 
 def vv_pol(n, grad, C=0.0093, u=0.):
@@ -38,3 +42,27 @@ def calc_vvpol(x, freq, rgrad_cutoff):
     ), axis=1)
     x.index = idx
     return x
+
+
+def bin_alpha_vv(df, bins):
+    prefix = df.index.names
+    if prefix == [None]:
+        prefix = []
+
+    def binidx(x):
+        return np.digitize(
+            reduced_grad(x).clip(bins[0]+1e-10, bins[-1]-1e-10),
+            bins
+        )
+    subsums = (
+        df
+        .assign(binidx=binidx)
+        .set_index('binidx', append=True)
+        .pipe(calc_vvpol, 0, rgrad_cutoff).stack().reset_index(-1, drop=True)
+        .groupby(prefix + ['binidx'])
+        .apply(lambda x: pd.Series({
+            'vv_pol': x.vvpol.sum(),
+            'vv_pol_nm': x.vvpol_nm.sum()
+        }))
+    )
+    return subsums
