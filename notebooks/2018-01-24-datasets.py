@@ -620,6 +620,20 @@ _df, _ds = calculate_solids(_variants)
 # In[ ]:
 
 
+(
+    pd.concat([_df]).loc[lambda x: ~x.index.duplicated('last')]
+    .groupby('label scale'.split()).apply(ene_int, _ds)
+    .apply(ene_dft_vdw, 1).stack(dropna=False)
+    .pipe(lambda x: x*ev).to_frame('ene')
+    .groupby('label scale'.split()).apply(ref_delta, _ds)
+    .groupby('label scale'.split()).apply(add_group, _ds)
+    .to_csv('../results/solids-raw-energies.csv')
+)
+
+
+# In[ ]:
+
+
 def add_group(x, ds):
     return x.assign(group=ds.df.loc(0)[x.name[:2]].group)
 
@@ -713,6 +727,19 @@ _df , _ds = calculate_ds('s66', _variants)
 # In[ ]:
 
 
+(
+    _df
+    .groupby('label scale'.split()).apply(ene_int, _ds)
+    .apply(ene_dft_vdw, 1).stack(dropna=False)
+    .pipe(lambda x: x*kcal).to_frame('ene')
+    .groupby('label scale'.split()).apply(ref_delta, _ds)
+    .to_csv('../results/s66-raw-energies.csv')
+)
+
+
+# In[ ]:
+
+
 _res = analyse_s66(_df, _ds).round(4)
 _res.to_csv('../results/s66-energies.csv')
 _res
@@ -759,6 +786,19 @@ _variants = [
 #     {'rpa': True, 'ord2': True, 'vvpol': 'nm', 'corr': True, 'beta': 0.8, 'vdw17base': True},
 ]
 _df , _ds = calculate_ds('x23', _variants, x23_alpha_vv)
+
+
+# In[ ]:
+
+
+(
+    _df
+    .groupby('label scale'.split()).apply(ene_int, _ds)
+    .apply(ene_dft_vdw, 1).stack(dropna=False)
+    .pipe(lambda x: x*kcal).to_frame('ene')
+    .groupby('label scale'.split()).apply(ref_delta, _ds)
+    .to_csv('../results/x23-raw-energies.csv')
+)
 
 
 # In[ ]:
