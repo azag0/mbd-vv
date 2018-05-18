@@ -26,6 +26,10 @@ import re
 pd.options.display.max_rows = 999
 
 from matplotlib import pyplot as plt
+import seaborn as sns
+sns.set(style='ticks', rc={
+    'axes.formatter.useoffset': False,
+})
 get_ipython().run_line_magic('config', "InlineBackend.figure_format = 'svg'")
 
 
