@@ -326,11 +326,11 @@ def get_atomic_quants():
     with app.context():
         dfs_dft, ds = app.get('solids')
     with MBDCalc(4) as mbd_calc:
-        freq_w = mbd_calc.omega_grid[0].copy()
+        freq, freq_w = mbd_calc.omega_grid
         alpha_vv = (
             solids_pts
             .set_index('i_atom', append=True)
-            .pipe(calc_vvpol, freq_w, rgrad_cutoff)
+            .pipe(calc_vvpol, freq, rgrad_cutoff)
             .groupby('label i_atom'.split()).sum()
         )
     df = []
@@ -444,7 +444,7 @@ def mbd_from_data(calc, data, beta, vv_scale=None, vvpol=None,
     lattice = data['lattice_vector']['value'].T if 'lattice_vector' in data else None
     volumes = last(data['volumes'])
     if vv_py:
-        alpha_vv = data['alpha_vv'].vv_pol.values.T
+        alpha_vv = data['alpha_vv'].vvpol.values.T
         freq_w = calc.omega_grid[1]
     else:
         alpha_vv = last(data['vv_pols']).copy()
@@ -534,7 +534,7 @@ def all_mbd_variants(calc, data, variants, kdensity=None):
 def get_variant_label(flags):
     inner = []
     for k, v in flags.items():
-        if k in ('rpa', 'scs', 'vdw17', 'corr', 'fortran', 'vdwvvscale', 'ts', 'ord2') and v:
+        if k in ('rpa', 'scs', 'vdw17', 'corr', 'fortran', 'vdwvvscale', 'ts', 'ord2', 'vv_py') and v:
             inner.append(k)
         elif k in ('vv_scale', 'beta', 'vdw', 'damping', 'param_a'):
             inner.append(f'{k}[{v}]')
