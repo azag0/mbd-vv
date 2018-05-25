@@ -6,15 +6,17 @@ from caf import collect
 from caf.app import UnfinishedTask
 from caf.Tools import geomlib
 from caf.Tools.geomlib import Atom
-from vdwsets import get_x23, get_s66x8, Dataset, Cluster
+from vdwsets import get_s22, get_x23, get_s66x8, Dataset, Cluster
 
 from .app import app, aims
 from .utils import chunks
 from .functasks import get_results, get_grid, integrate_atomic_vv
 
+np = None
 
 aims_binary = 'aims-c68bd2f'
 aims_binary_atoms = 'aims-138e95e'
+aims_v3 = 'aims-7077a22'
 default_tags = dict(
     xc='pbe',
     spin='none',
@@ -134,6 +136,7 @@ async def taskgen_solids(geom, tags, root, data, ds, label, scale, atoms):
 
 @app.route('solids')
 async def get_solids():
+    global np
     import numpy as np
     import pandas as pd
 
@@ -215,6 +218,77 @@ async def get_solids():
         .DataFrame(data['atoms'], columns='Z symbol full_conf conf data'.split()) \
         .set_index('symbol')
     return data, ds
+
+
+@app.route('surface')
+async def get_surface():
+    global np
+    import numpy as np
+    tags = {
+        **default_tags,
+        **solids_tags,
+        'many_body_dispersion_dev': {'grid_atoms': (1, 54, 31, 28, 27, 4)}
+    }
+    tags['occupation_type'] = ('gaussian', 0.05)
+    tags['charge_mix_param'] = 0.05
+    tags['k_grid'] = (8, 8, 1)
+    tags['sc_iter_limit'] = 100
+    ds = get_s22()
+    bz = geomlib.readfile(
+        ds.clusters['Benzene dimer T-shaped', 1].fragments['fragment-1']
+    ).centered().rotated('y', 90)
+    slab = (
+        get_slab(4.069, 'Ag')
+        .supercell((1, 1, 2))
+        .shifted((0, 0, -0.1))
+        .normalized()
+    )
+    slab.lattice[2] = (0, 0, 40)
+    height = slab.xyz[:, 2].max()
+    hcp_site = slab.lattice[0][0]*2/9*5
+    async def task(dist):
+        geom = slab + bz.shifted((hcp_site, 0, height+dist))
+        root = f'surface/{dist}'
+        dft_task = await aims.task(
+            geom=geom,
+            aims=aims_v3,
+            basis='tight',
+            tags=tags,
+            label=root,
+            extra_feat=[join_grids],
+        )
+        return await collect(
+            get_results(dft_task['results.xml'], label=f'{root}/results'),
+            get_grid(dft_task['grid.xml'], label=f'{root}/grid')
+        )
+    return await collect(*map(task, (2.7, 3, 3.3, 4, 8)))
+
+
+def get_slab(lattice, species):
+    geom = get_crystal('A1', lattice, [species])
+    lattice = np.array(geom.lattice)
+    lattice = [
+        3*lattice[0]-3*lattice[1],
+        3*lattice[0]-3*lattice[2],
+        lattice[0]+lattice[1]+lattice[2],
+    ]
+    geom = geom.supercell((12, 12, 12))
+    frac = geom.xyz@np.linalg.inv(lattice)
+    geom = geomlib.Crystal([
+        a for a, b in zip(
+            geom,
+            np.all(((0, 0, 3) < frac+1e-10) & (frac+1e-10 < (1, 1, 4)), 1)
+        ) if b
+    ], lattice).normalized()
+    a, _, b = map(np.linalg.norm, geom.lattice)
+    new_latt = np.array([
+        (np.sqrt(3)/2*a, 1/2*a, 0),
+        (np.sqrt(3)/2*a, -1/2*a, 0),
+        (0, 0, b)
+    ])
+    rotmat = (np.linalg.inv(geom.lattice)@new_latt).T
+    geom = geom.rotated(rotmat=rotmat)
+    return geom
 
 
 def get_force_occs(conf):
