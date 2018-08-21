@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "43cc6c3d6a1ff5834f17280e9a09363f673c7da9bc11c743fb511b15844b8e4d"
+            "sha256": "dc137bfb29e01d8d9a566ac5cfefc319478ce8ee3d9119faa7562a3c6cd27965"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -14,13 +14,9 @@
         ]
     },
     "default": {
-        "268e117": {
+        "caf": {
             "editable": true,
             "path": "./_caf"
-        },
-        "31b22f4": {
-            "editable": true,
-            "path": "./_vdwsets"
         },
         "cffi": {
             "hashes": [
@@ -59,7 +55,7 @@
             ],
             "version": "==1.11.5"
         },
-        "e1839a8": {
+        "mbdvv": {
             "editable": true,
             "path": "."
         },
@@ -219,6 +215,10 @@
                 "sha256:be7b05ddab71727fabf1f071365043cf034e4cdac9cade1f1d61a6cc526aaafe"
             ],
             "version": "==3.6.5"
+        },
+        "vdwsets": {
+            "editable": true,
+            "path": "./_vdwsets"
         }
     },
     "develop": {
