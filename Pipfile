@@ -1,12 +1,9 @@
 [[source]]
-
 url = "https://pypi.python.org/simple"
 verify_ssl = true
 name = "pypi"
 
-
 [packages]
-
 caf = {path = "./_caf", editable = true}
 numpy = "*"
 pandas = "*"
@@ -15,9 +12,7 @@ mbdvv = {path = ".", editable = true}
 tables = "*"
 pymbd = {git = "https://github.com/azag0/pymbd.git", editable = true, ref = "e02a56e50c911745f630487ac788435f0b1daa11"}
 
-
 [dev-packages]
-
 cffi = "*"
 scipy = "*"
 tqdm = "*"
@@ -29,3 +24,4 @@ lxml = "*"
 "jinja2" = "*"
 pyyaml = "*"
 seaborn = "*"
+tornado = "==4.5.3"
