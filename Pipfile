@@ -10,10 +10,8 @@ pandas = "*"
 vdwsets = {path = "./_vdwsets", editable = true}
 mbdvv = {path = ".", editable = true}
 tables = "*"
-pymbd = {git = "https://github.com/azag0/pymbd.git", editable = true, ref = "e02a56e50c911745f630487ac788435f0b1daa11"}
 
 [dev-packages]
-cffi = "*"
 scipy = "*"
 tqdm = "*"
 matplotlib = "*"
@@ -25,3 +23,5 @@ lxml = "*"
 pyyaml = "*"
 seaborn = "*"
 tornado = "==4.5.3"
+pymbd = {editable = true, path = "./_pymbd"}
+pyatsol = {editable = true, path = "/Users/hermann/Code/atomic-solver"}
