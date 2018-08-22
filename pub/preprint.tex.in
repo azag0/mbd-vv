@@ -4,8 +4,6 @@
 
 \begin{document}
 
-\nocite{achemso-control}
-
 \twocolumn[{
   \maketitle
   \vspace{-3em}
@@ -36,7 +34,7 @@
 \begingroup
 \setlength\bibsep{0pt}
 \footnotesize
-\bibliography{refs-zotero,refs}
+\bibliography{refs-zotero,refs,\jobname-achemso}
 \endgroup
 
 \end{document}

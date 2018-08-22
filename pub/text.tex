@@ -1,9 +1,95 @@
 \section{Introduction}
 
-\section{Background}
+The tree of 
 
-\section{Results}
+\section{Theory}
+
+The basic proposition of our new model, dubbed MBD@VV, is to parameterize the many-body dispersion (MBD) Hamiltonian with the Vydrov–Van Voorhis (VV) polarizability functional.
+The MBD Hamiltonian \citep{TkatchenkoPRL12,TkatchenkoJCP13,Blood-ForsytheCS16} describes a system of harmonic oscillators $\boldsymbol\xi_i$ characterized by their static polarizabilities $\alpha_{0,i}$ and frequencies $\omega_i$ and interacting via a long-range dipole potential $\mathbf T^\text{lr}$,
+\begin{multline}
+  H^\text{MBD}(\{\alpha_{0,i},\omega_i\})=\sum_i-\frac12\nabla_{\xi_i}^2+\sum_i\frac12\omega_i^2\xi_i^2 \\
+  +\frac12\sum_{ij}\omega_i\omega_j\sqrt{\alpha_{0,i}\alpha_{0,j}}\boldsymbol{\xi}_i\cdot\mathbf T^\text{lr}_{ij}\boldsymbol{\xi}_j
+\end{multline}
+We obtain the oscillator parameters by coarse-graining \citep{SatoJCP09,SatoJCP10} the VV polarizability functional \citep{VydrovPRL09,VydrovJCP10a,VydrovPRA10},
+\begin{equation}
+   \alpha^\text{VV}[n](\mathrm iu)=\frac{n}{\frac{4\pi}3n+C\frac{|\boldsymbol\nabla n|^4}{n^4}+u^2}
+   \label{eq:vv-functional}
+\end{equation}
+to Hirshfeld fragments $w_i^\text{H}$ \citep{HirshfeldTCA77},
+\begin{equation}
+  \alpha_i^\text{VV}(\mathrm iu)=\int\mathrm d\mathbf r\,w_i^\text{H}(\mathbf r)\alpha^\text{VV}[n](\mathbf r,\mathrm iu)
+\end{equation}
+The effective oscillator frequencies are calculated such as to reproduce the same $C_6$ coefficients for the oscillators as if calculated directly from $\alpha_i(\mathrm iu)$ via the Casimir--Polder formula,
+\begin{equation}
+  \omega_i=\frac43\frac{C_{6,i}}{\alpha_{0,i}^2},\quad
+  C_{6,i}=\frac3\pi\int_0^\infty\mathrm du\,\alpha_i(\mathrm iu)^2
+\end{equation}
+
+This plain combination of the MBD approach and VV polarizability functional already improves description of ionic systems compared to previous MBD parameterizations.
+But when combined with DFT, it suffers from double-counting electron correlation in metallic systems (slowly-varying electron density regions), and lacks in accuracy for covalent systems with respect to state-of-the-art vdW methods.
+To solve these two issues, we borrow two techniques from the VV10 nonlocal functional and the TS method.
+First, we subtract the portion of the polarizability that comes from metallic electron density regions.
+Second, we normalize the atomic VV polarizabilities and $C_6$ coefficients to reproduce the respective exact quantities for free atoms.
+
+\begin{figure}[t!]
+\centering
+\includegraphics{../media/solids-hists-cutoff.pdf}
+\caption{\textbf{Distributions of the reduced gradient $s$ and iso-orbital indicator $\alpha$ according to contribution to the total polarizability.}
+The five blackish plots show the distributions $\alpha^\text{VV}(s,\alpha)$ aggregated over multiple crystals within each group.
+The magnitude of the distribution is mapped to the color intensity on a log scale.
+The bottom-right plot shows the function $g_\text{nm}$ used to distinguish the nonmetallic density regions.
+The crystals in each group as well as details of the calculations can be found in Supplementary Information.
+}\label{fig:solids-hists-cutoff}
+\end{figure}
+
+Most exchange--correlation functionals are exact for the uniform electron gas by construction and as a result, describe accurately the electron correlation \emph{within} slowly-varying density regions, which can be found in metals.
+Furthermore, the interactions \emph{between} such regions and other regions of the electron density are effectively screened by the conducting electrons.
+At the same time, these metallic-density regions contribute dominantly to the total polarizability (see eq.~\ref{eq:vv-functional}) and therefore, if used directly in any vdW model, would result in overpolarization and overbinding of metallic systems.
+To avoid this double-counting of the electron correlation, we smoothly cut off the VV polarizability functional in metallic-density regions.
+These regions can be distinguished using the combination of two local electron-density descriptors: the reduced gradient $s$ and the iso-orbital indicator $\alpha$ \citep{BeckeJCP90,KummelMP03,SunPRL13},
+\begin{equation}
+  s[n]=\frac{|\boldsymbol\nabla n|}{2(3\pi^2)^\frac13n^\frac43},\quad
+  \alpha[n]=\frac{\tau-\tau_\text{W}}{\tau^\text{unif}}
+\end{equation}
+In particular, the metallic density is characterized by $s\rightarrow0$ and $\alpha\sim1$.
+Based on the numerical analysis of these two descriptors in a wide range of materials, we devised a function of these two descriptors that distinguishes the nonmetallic (nm) density regions (Fig.~\ref{fig:solids-hists-cutoff}),
+\begin{equation}
+  g_\text{nm}(s,\alpha)=\ldots,\quad
+  \alpha^\text{nmVV}[n]=g_\text{nm}(s,\alpha)\alpha^\text{VV}[n]
+\end{equation}
+The exact shape of the function is to some degree arbitrary, but mostly can be characterized as being zero in the largest possible neighborhood around $(s,\alpha)=(0,1)$ without making $\alpha^\text{nmVV}[n]$ significantly smaller than $\alpha^\text{VV}[n]$ for the group of semiconductors.
+We discuss the sensitivity of our model to the shape of $g_\text{nm}$ in greater detail below.
+
+The VV polarizability functional is only approximate, which is manifest already for free-atom polarizabilities and $C_6$ coefficients, where accurate reference values are known.
+To mitigate this error, we normalize the VV quantities with the ratio of the free-atom polarizabilities and $C_6$ coefficients as calculated by the VV functional and as given by reference calculations,
+\begin{equation}
+  \alpha_{0,i}^\text{rVV}=\alpha_{0,i}^\text{nmVV}\frac{\alpha_{0,i}^\text{ref,free}}{\alpha_{0,i}^\text{VV,free}},\quad
+  C_{6,i}^\text{rVV}=C_{6,i}^\text{nmVV}\frac{C_{6,i}^\text{ref,free}}{C_{6,i}^\text{VV,free}}
+\end{equation}
+This correction assumes that any error in $\alpha^\text{VV}[n]$ (or $\alpha^\text{nmVV}[n]$) is at least partially transferable from free atoms to atoms in molecules and materials.
+Alternatively, this step can be seen as a modification of the TS method \citep{TkatchenkoPRL09}, in which the scaling of reference free-atom quantities by Hirshfeld volumes is replaced with that by VV-derived polarizabilities and $C_6$ coefficients.
+
+Finally, we use the same definition of $\mathbf T^\text{lr}$ as in the MBD@rsSCS variant \citep{AmbrosettiJCP14},
+\begin{equation}
+  \mathbf T_{ij}^\text{lr}=\frac1{1+\exp\left(-6\Big(\frac{|\mathbf r|}{\beta(R_i^\text{vdw}+R_j^\text{vdw})}-1\Big)\!\!\right)}\boldsymbol\nabla\otimes\boldsymbol\nabla\frac1{|\mathbf r|}\Bigg|_{\mathbf r=\mathbf R_j-\mathbf R_i}
+\end{equation}
+with the vdW radii $R_i^\text{vdW}$ obtained by scaling free-atom radii with ratio of Hirshfeld volumes in the molecule or material and in free atoms,
+\begin{equation}
+  R_i^\text{vdW}=R_i^\text{vdW,free}\left(\frac{V_i^\text{H}}{V_i^\text{H,free}}\right)^\frac13,\quad
+  R_i^\text{vdW,free}=\tfrac52(\alpha_{0,i}^\text{free})^\frac17
+\end{equation}
+The only novel minor modification is that the free-atom radii are calculated from free-atom static polarizabilities \citep{Dima} rather than taken as external input.
+
+\section{Numerical results}
 
 \section{Discussion}
+
+Hirshfeld partitioning/Hirshfeld volumes, sensitivity to choice of partitioning.
+
+How double-counting is treated
+
+Discuss short/long-range nature of fluctuations in metals, screening.
+
+Discuss $g_\text{nm}$.
 
 \section{Conclusions}

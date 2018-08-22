@@ -1,0 +1,455 @@
+master: b8a087ddb6d4071259ee9d8a98488125cd69d3c3
+diff --git a/hirshfeld.f90 b/hirshfeld.f90
+index ad90c8979..242fec31d 100644
+--- a/hirshfeld.f90
++++ b/hirshfeld.f90
+@@ -22,14 +22,18 @@ use pbc_lists, only: &
+ use xml_write, only: xml_open_file, Xml_file_t, xml_elem, xml_open, &
+     xml_close, xml_close_file, tostr
+ use sym_base, only: evaluate_densmat_sym
++use mbd, only: omega_grid, omega_grid_w, init_grid, destroy_grid, &
++    n_grid_omega
+ 
+ implicit none
+ 
+ private
+ 
+ logical, public :: &
+-    hirshfeld_out = .false., &
++    grid_out = .false., &
+     use_pulay = .false.
++integer, public :: grid_atoms(100) = -1
++real(8), public :: C_vv = 0.0093d0
+ 
+ type(Xml_file_t) :: xml_file_grid
+ 
+@@ -62,22 +66,56 @@ subroutine hirshfeld_finalize()
+     if (allocated(hirshfeld_pulay_stress)) deallocate (hirshfeld_pulay_stress)
+ end subroutine
+ 
+-subroutine run_hirshfeld(rho_grid, volumes, dvoldr, dvoldh, shift, strain)
++elemental function terf(r, r0, a)
++    real(8), intent(in) :: r, r0, a
++    real(8) :: terf
++
++    terf = 0.5d0*(erf(a*(r+r0))+erf(a*(r-r0)))
++end function
++
++elemental real(8) function rgrad_cutoff(s)
++    real(8), intent(in) :: s
++
++    rgrad_cutoff = terf(s, 0.07d0, 60.d0)
++end function
++
++subroutine run_hirshfeld(rho_grid, volumes, dvoldr, dvoldh, shift, strain, rho_grad_grid, &
++        kinetic_density_grid, partition_tab)
+     real(8), intent(in) :: rho_grid(n_spin, n_full_points)
+     real(8), intent(out) :: volumes(n_atoms)
+     real(8), intent(out), optional :: dvoldr(n_atoms, n_atoms, 3)
+     real(8), intent(out), optional :: dvoldh(n_atoms, 3, 3)
+     real(8), intent(in), optional :: shift(n_atoms, 3)
+     real(8), intent(in), optional :: strain(3, 3)
++    real(8), intent(in), optional :: rho_grad_grid(3, n_spin, n_full_points)
++    real(8), intent(in), optional :: kinetic_density_grid(:, :)
++    real(8), intent(in), optional :: partition_tab(:)
+ 
+-    real(8) :: rho, weight, dweightdr(n_atoms, 3), dweightdh(3, 3), h_inv(3, 3)
+-    integer :: i_full_point, i_batch, i_batch_point, i_atom
++    real(8) :: rho, rho_grad_norm, part_weight, weight, dweightdr(n_atoms, 3), &
++        dweightdh(3, 3), h_inv(3, 3), kin_dens, rgrad
++    integer :: i_full_point, i_batch, i_batch_point, i_atom, i
+     type(grid_point) :: point
++    real(8), allocatable :: vv_pols(:, :), vv_pol(:), vv_pols_nm(:, :)
++    logical, allocatable :: print_grid_atom(:)
+ 
+-    if (hirshfeld_out) then
++    if (grid_out) then
+         call xml_open_file("grid-"//trim(tostr(myid))//".xml", "grid", xml_file_grid)
++        allocate (print_grid_atom(n_atoms), source=.false.)
++        if (grid_atoms(1) == -1) print_grid_atom(:) = .true.
++        do i = 1, size(grid_atoms)
++            if (grid_atoms(i) == -1) exit
++            print_grid_atom(grid_atoms(i)) = .true.
++        end do
+     end if
++    call init_grid(15)
+     volumes(:) = 0.d0
++    if (present(rho_grad_grid)) then
++        allocate (vv_pol(0:n_grid_omega))
++        allocate (vv_pols(0:n_grid_omega, n_atoms))
++        allocate (vv_pols_nm(0:n_grid_omega, n_atoms))
++        vv_pols(:, :) = 0.d0
++        vv_pols_nm(:, :) = 0.d0
++    end if
+     if (present(dvoldr)) dvoldr(:, :, :) = 0.d0
+     if (present(dvoldh)) dvoldh(:, :, :) = 0.d0
+     if (n_periodic > 0) h_inv = inverted3x3(lattice_vector)
+@@ -86,17 +124,33 @@ subroutine run_hirshfeld(rho_grid, volumes, dvoldr, dvoldh, shift, strain)
+         do i_batch_point = 1, batches(i_batch)%size
+             i_full_point = i_full_point+1
+             point = batches(i_batch)%points(i_batch_point)
++            i_atom = point%index_atom
++            xml_file_grid%muted = .not. print_grid_atom(i_atom)
+             call evaluate_hirshfeld_factor( &
+-                'W', point, weight, dweightdr, dweightdh, shift, strain &
++                'W', point, weight, part_weight, dweightdr, dweightdh, shift, strain &
+             )
+             ! also opens the xml elem if weight > 0
+             if (.not. weight > 0.d0) cycle
+-            i_atom = point%index_atom
+             rho = sum(rho_grid(:, i_full_point))
+             call xml_elem('i_atom', i_atom, file=xml_file_grid)
+             call xml_elem('rho', rho, file=xml_file_grid)
++            if (size(kinetic_density_grid, 2) > 1) then
++                kin_dens = sum(kinetic_density_grid(:, i_full_point))
++                call xml_elem('kin_dens', kin_dens, file=xml_file_grid)
++            end if
++            if (present(partition_tab)) then
++                call xml_elem('partition_tab', partition_tab(i_full_point), file=xml_file_grid)
++            end if
+             volumes(i_atom) = volumes(i_atom)+rho*weight
+-            call xml_elem('rho_weight', rho*weight, file=xml_file_grid)
++            if (present(rho_grad_grid)) then
++                rho_grad_norm = sqrt(sum(sum(rho_grad_grid(:, :, i_full_point), 2)**2))
++                rgrad = rho_grad_norm/(2*(3*pi**2)**(1.d0/3)*rho*(4.d0/3))
++                call xml_elem('rho_grad_norm', rho_grad_norm, file=xml_file_grid)
++                vv_pol = vv_polarizability(rho, rho_grad_norm, omega_grid, 0.0093d0)
++                vv_pols(:, i_atom) = vv_pols(:, i_atom) + vv_pol*part_weight
++                vv_pols_nm(:, i_atom) = vv_pols_nm(:, i_atom) + vv_pol*rgrad_cutoff(rgrad)*part_weight
++                call xml_elem('vv_pol', vv_pol(0), file=xml_file_grid)
++            end if
+             if (present(dvoldr)) then
+                 dvoldr(i_atom, :, :) = dvoldr(i_atom, :, :)+rho*dweightdr
+                 call xml_elem('rho_dweightdr', rho*dweightdr, file=xml_file_grid)
+@@ -108,10 +162,19 @@ subroutine run_hirshfeld(rho_grid, volumes, dvoldr, dvoldh, shift, strain)
+             call xml_close(file=xml_file_grid)
+         end do
+     end do
++    xml_file_grid%muted = .false.
+     call sync_vector(volumes, size(volumes))
+     if (.not. (present(shift) .or. present(strain))) then
+         call xml_elem('volumes', volumes)
+     end if
++    if (present(rho_grad_grid)) then
++        call sync_vector(vv_pols, size(vv_pols))
++        call xml_elem('vv_pols', vv_pols)
++        call sync_vector(vv_pols_nm, size(vv_pols_nm))
++        call xml_elem('vv_pols_nm', vv_pols_nm)
++        call xml_elem('omega_grid', omega_grid)
++        call xml_elem('omega_grid_w', omega_grid_w)
++    end if
+     if (present(dvoldr)) then
+         call sync_vector(dvoldr, size(dvoldr))
+         call xml_elem('dvoldr', dvoldr)
+@@ -132,10 +195,18 @@ subroutine run_hirshfeld(rho_grid, volumes, dvoldr, dvoldh, shift, strain)
+             end if
+         end if
+     end if
++    call destroy_grid()
+ 
+-    if (hirshfeld_out) call xml_close_file(xml_file_grid)
++    if (grid_out) call xml_close_file(xml_file_grid)
+ end subroutine run_hirshfeld
+ 
++elemental function vv_polarizability(rho, rho_grad, omega, C) result(alpha)
++    real(8), intent(in) :: rho, rho_grad, omega, C
++    real(8) :: alpha
++
++    alpha = rho/(4*pi/3*rho+C*(rho_grad/rho)**4+omega**2)
++end function
++
+ subroutine contract_with_dVdn(x, y)
+     ! Calculates $y(\mathbf r)=\sum_{i\in\text{atoms}}x_jw^\text{H}_j(r)|\mathbf
+     ! r-\mathbf R_j|^3$.
+@@ -161,7 +232,7 @@ subroutine contract_with_dVdn(x, y)
+ end subroutine
+ 
+ subroutine evaluate_hirshfeld_factor( &
+-        mode, point, weight, dweightdr, dweightdh, shift, strain &
++        mode, point, weight, part_weight, dweightdr, dweightdh, shift, strain &
+     )
+     ! Calculates $w^\text{H}_i(\mathbf r)|\mathbf{r}-\mathbf{R}_i|^3$ if `mode
+     ! == 'N'` or multiplied with $w_\text{int}(\mathbf r)$ if `mode == 'W'`.
+@@ -172,6 +243,7 @@ subroutine evaluate_hirshfeld_factor( &
+     type(grid_point), intent(in) :: point
+     character(len=1), intent(in) :: mode
+     real(8), intent(out) :: weight
++    real(8), intent(out), optional :: part_weight
+     real(8), intent(out), optional :: dweightdr(n_atoms, 3)
+     real(8), intent(out), optional :: dweightdh(3, 3)
+     real(8), intent(in), optional :: shift(n_atoms, 3)
+@@ -228,6 +300,7 @@ subroutine evaluate_hirshfeld_factor( &
+     specie_i = species(i_atom)
+     rho_0_total = sum(rho_0_i)
+     weight_hirsh = rho_0_i(i_atom)/rho_0_total
++    part_weight = weight_hirsh
+     weight = weight_hirsh*dist_to_atoms(i_atom)**3
+     if (.not. weight > 0.d0) return
+     call xml_open('point', file=xml_file_grid)
+@@ -248,8 +321,10 @@ subroutine evaluate_hirshfeld_factor( &
+             * w_angular(i_angular, i_radial, specie_i)
+         call xml_elem('weight_int', weight_int, file=xml_file_grid)
+         weight = weight*weight_int
++        part_weight = part_weight*weight_int
+     end select
+     call xml_elem('weight', weight, file=xml_file_grid)
++    call xml_elem('part_weight', part_weight, file=xml_file_grid)
+     if (present(dweightdr)) then
+         r_diff(:) = r(:)-coords(:, i_atom)
+         dr3dr(:) = -3*dist_to_atoms(i_atom)*r_diff(:)
+@@ -298,9 +373,13 @@ subroutine evaluate_free_atom_quantities(volumes_free)
+     real(8), intent(out) :: volumes_free(n_species)
+ 
+     integer :: i_radial, i_specie
+-    real(8) :: rho, r, r_log, weight_int
++    real(8) :: rho, r, r_log, weight_int, rho_grad
++    real(8), allocatable :: vv_pols(:, :)
+ 
++    call init_grid(15)
+     volumes_free(:) = 0.d0
++    allocate (vv_pols(0:n_grid_omega, n_species))
++    vv_pols(:, :) = 0.d0
+     do i_specie = 1, n_species
+         do i_radial = 1, n_radial(i_specie)
+             r = r_radial(i_radial, i_specie)
+@@ -310,13 +389,24 @@ subroutine evaluate_free_atom_quantities(volumes_free)
+             rho = val_spline( &
+                 r_log, free_rho_spl(:, :, i_specie), n_grid(i_specie) &
+             )/(4d0*pi)
++            rho_grad = val_spline(&
++                r_log, free_drho_dr_spl(:, :, i_specie), n_grid(i_specie) &
++            )/(4d0*pi)
+             if (rho <= 0.d0) cycle
+             weight_int = 4d0*pi*r_radial(i_radial, i_specie)**2 &
+                 * w_radial(i_radial, i_specie)
+             volumes_free(i_specie) = volumes_free(i_specie) &
+                 + rho*r_radial(i_radial, i_specie)**3*weight_int
++            vv_pols(:, i_specie) = vv_pols(:, i_specie) &
++                + vv_polarizability(rho, rho_grad, omega_grid, C_vv)*weight_int
+         end do
+     end do
++    call destroy_grid()
++    call xml_open('free_atoms')
++    call xml_elem('volumes', volumes_free)
++    call xml_elem('vv_pols', vv_pols)
++    call xml_elem('species', species)
++    call xml_close()
+ end subroutine
+ 
+ subroutine numerical_hirshfeld_deriv(rho)
+@@ -508,7 +598,7 @@ subroutine eval_hirsh_vol_pulay_deriv_dm( &
+     densmat_sparse_work(:, :) = 0.d0  ! TODO is this necessary?
+     call kweight_occs('eval_hirsh_vol_pulay_deriv_dm', occ_numbers)
+     do i_spin = 1, n_spin
+-	if(use_symmetry_reduced_spg)then
++    if(use_symmetry_reduced_spg)then
+           call evaluate_densmat_sym( &
+                KS_eigenvector, KS_eigenvector_cmplx, &
+                occ_numbers, dummy_matrix, densmat_sparse_work(:, i_spin), i_spin, .true. &
+diff --git a/mbd_dev_interface.f90 b/mbd_dev_interface.f90
+index e40b35dfa..b4795bbcb 100644
+--- a/mbd_dev_interface.f90
++++ b/mbd_dev_interface.f90
+@@ -7,7 +7,7 @@ use localorb_io, only: OL_norm, OL_high, localorb_info
+ 
+ implicit none
+ 
+-real(8) :: pi
++real(8) :: pi = acos(-1.d0)
+ integer, parameter :: legendre_precision = 8
+ 
+ interface sync_sum
+diff --git a/mbd_dev_wrapper.f90 b/mbd_dev_wrapper.f90
+index b7f9d56ef..34ea29566 100644
+--- a/mbd_dev_wrapper.f90
++++ b/mbd_dev_wrapper.f90
+@@ -30,6 +30,7 @@ public :: mbd_dev_parse, mbd_dev_verify, mbd_dev_calculate
+ contains
+ 
+ integer function mbd_dev_parse() result(info)
++    use hirshfeld, only: grid_out, grid_atoms
+     use mbd, only: &
+         param_vacuum_axis, param_ts_energy_accuracy, &
+         param_dipole_low_dim_cutoff, bohr, &
+@@ -91,6 +92,11 @@ integer function mbd_dev_parse() result(info)
+                 case ('k_grid')
+                     read (val, *, iostat=iostat) k_grid
+                     do_reciprocal = .true.
++                case ('grid_out')
++                    read (val, *, iostat=iostat) grid_out
++                case ('grid_atoms')
++                    read (val, *, iostat=iostat) grid_atoms
++                    if (iostat == -1) iostat = 0
+                 case ('modes') 
+                     read (val, *, iostat=iostat) output_modes
+                 case ('beta') 
+diff --git a/mbd_std_wrapper.f90 b/mbd_std_wrapper.f90
+index 7ad53dff8..03a49f986 100644
+--- a/mbd_std_wrapper.f90
++++ b/mbd_std_wrapper.f90
+@@ -26,7 +26,7 @@ logical, public :: run_numerical_pulay_forces = .false.
+ contains
+ 
+ integer function mbd_std_parse() result(retcode)
+-    use hirshfeld, only: hirshfeld_out, use_pulay
++    use hirshfeld, only: grid_out, use_pulay
+     use runtime_choices, only: flag_xc, n_k_points_xyz
+     use mbdvdw_interface_module, only: &
+         mbd_vdw_n_quad_pts, mbd_vdw_supercell, &
+@@ -76,8 +76,8 @@ integer function mbd_std_parse() result(retcode)
+                     read (val, *, iostat=stat) use_pulay
+                 case ('hirshfeld_deriv!')
+                     read (val, *, iostat=stat) use_hirshfeld_deriv
+-                case ('hirshfeld_out')
+-                    read (val, *, iostat=stat) hirshfeld_out
++                case ('grid_out')
++                    read (val, *, iostat=stat) grid_out
+                 case ('old_hirshfeld')
+                     read (val, *, iostat=stat) use_old_hirshfeld
+                 case ('beta')
+diff --git a/read_control.f90 b/read_control.f90
+index 06871b071..0af9985ee 100644
+--- a/read_control.f90
++++ b/read_control.f90
+@@ -74,6 +74,7 @@ subroutine read_control ( )
+    use mbd_std_wrapper, only: mbd_std_flags, mbd_std_parse
+    use python_interface, only: register_python_hook
+    use applicable_citations
++   use hirshfeld, only: hirshfeld_grid_out => grid_out
+    use dimensions_soc, only : n_core_states_omit_from_soc, &
+                               n_high_states_omit_from_soc
+    use psi_at_nucleus_mod, only: initialize_psi_at_nucleus
+@@ -8688,6 +8689,14 @@ subroutine read_control ( )
+ 
+                out_hirshfeld = .true.
+ 
++            else if (desc_str == 'hirshfeld_new') then
++                if (myid == 0) then
++                    write (use_unit,'(2X,A)') &
++                        "New Hirshfeld charge analysis will be performed."
++                end if
++                out_hirshfeld_new = .true.
++                read (inputline, *, end=88, err=99) desc_str, desc_str, hirshfeld_grid_out
++
+             else if ( (desc_str.eq.'hirshfeld_always') .or. &
+                      (desc_str.eq.'Hirshfeld_always')      ) then
+ 
+diff --git a/runtime_choices.f90 b/runtime_choices.f90
+index efbefebed..a6562644d 100644
+--- a/runtime_choices.f90
++++ b/runtime_choices.f90
+@@ -681,6 +681,7 @@
+       logical :: out_atom_dos    = .false.
+       logical :: out_species_dos = .false.
+       logical out_hirshfeld                  
++      logical :: out_hirshfeld_new = .false.
+       logical out_hirshfeld_iterative        
+       logical :: out_hirshfeld_always = .false. ! default set again in read_control.f90
+       logical out_vdwdf
+diff --git a/scf_solver.f90 b/scf_solver.f90
+index 0d5229a66..52357196d 100644
+--- a/scf_solver.f90
++++ b/scf_solver.f90
+@@ -67,8 +67,9 @@
+       use mbd_std_wrapper, only: &
+           mbd_std_calculate, mbd_self_consistent, mbd_first_step, &
+           mbd_scf_converged, run_numerical_pulay_forces
+-      use hirshfeld, only: eval_hirsh_vol_pulay_deriv_dm, use_pulay, &
+-          numerical_hirsh_pulay_forces
++      use hirshfeld, only: &
++          run_hirshfeld, eval_hirsh_vol_pulay_deriv_dm, use_pulay, &
++          numerical_hirsh_pulay_forces, evaluate_free_atom_quantities
+       use xml_write, only: xml_elem
+       use mbd_dev_wrapper, only: mbd_dev_calculate
+       use python_interface, only: run_python_hook, python_hooks
+@@ -2547,6 +2548,7 @@
+           ((flag_rel == REL_zora) .and. (force_potential == 0)) &
+           .or. out_band .or. out_band_mulliken .or. use_qmmm & ! add mlk
+           .or. out_hirshfeld .or. out_hirshfeld_iterative &
++          .or. out_hirshfeld_new &
+           .or. use_vdw_correction_hirshfeld &
+           .or. use_mbd_old &
+           .or. use_mbd_dev &
+@@ -2816,7 +2818,7 @@
+ !    If Hirshfeld analysis requested, fill in charge density on grid points that are not covered by "normal" partition_tab
+           if ( &
+               out_hirshfeld .or. out_hirshfeld_iterative .or. use_vdw_correction_hirshfeld &
+-              .or. use_mbd_old .or. use_mbd_dev .or. use_mbd_std &
++              .or. use_mbd_old .or. use_mbd_dev .or. use_mbd_std .or. out_hirshfeld_new &
+           ) then
+             ! Prior to Hirshfeld analysis, must make sure that the density was calculated on
+             ! all grid points - previously, the density was only updated on the grid points
+@@ -3235,6 +3237,17 @@
+         call output_dipole_moment ( )
+       end if
+ 
++      if (out_hirshfeld_new) then
++          if (.not. allocated(hirshfeld_volume)) then
++              allocate (hirshfeld_volume(n_atoms))
++          end if
++          call evaluate_free_atom_quantities(hirshfeld_volume)
++          call run_hirshfeld( &
++              rho, hirshfeld_volume, rho_grad_grid=rho_gradient, &
++              kinetic_density_grid=kinetic_density &
++            )
++      end if
++
+       if (out_quadrupole_moment) then
+         call output_quadrupole_moment ( )
+       end if
+diff --git a/xml_write.f90 b/xml_write.f90
+index f177c3069..90ecdc14d 100644
+--- a/xml_write.f90
++++ b/xml_write.f90
+@@ -57,6 +57,7 @@ integer, parameter :: &
+ type, public :: Xml_file_t
+     private
+ 
++    logical, public :: muted = .false.
+     integer :: io_unit
+     integer :: indent_level
+     integer :: tab_spaces
+@@ -219,6 +220,7 @@ subroutine xml_close_file(file)
+     call xml_close(file=xml_file)
+     if (xml_file%io_unit >= 0) then
+         if (xml_file%indent_level > 0) then
++            write (xml_file%io_unit, *) xml_file%indent_level
+             write (xml_file%io_unit, "(a)") &
+                 "**error: there are unclosed tags left"
+         endif
+@@ -256,7 +258,7 @@ subroutine xml_open(tag, attrs, file)
+     else
+         xml_file = default_file
+     endif
+-    if (xml_file%io_unit < unit_min) return
++    if (xml_file%io_unit < unit_min .or. xml_file%muted) return
+     io_unit = xml_file%io_unit
+     call xml_indent(xml_file)
+     write (io_unit, "(a,a)", advance="no") "<", trim(tag)
+@@ -295,7 +297,7 @@ subroutine xml_close(file)
+     else
+         xml_file = default_file
+     endif
+-    if (xml_file%io_unit < unit_min) return
++    if (xml_file%io_unit < unit_min .or. xml_file%muted) return
+     io_unit = xml_file%io_unit
+     if (xml_file%indent_level < 1) then
+         write (io_unit, "(a)") "**Error: there is not tag left to close"
+@@ -380,7 +382,7 @@ subroutine xml_elem_str_(tag, val, attrs, file)
+     else
+         xml_file = default_file
+     endif
+-    if (xml_file%io_unit < unit_min) return
++    if (xml_file%io_unit < unit_min .or. xml_file%muted) return
+     io_unit = xml_file%io_unit
+     call xml_indent(xml_file)
+     write (io_unit, "(a,a)", advance="no") "<", trim(tag)
+@@ -435,7 +437,7 @@ subroutine xml_vector(tag, arr_dble, arr_int, attrs, name, unit, file)
+     else
+         xml_file = default_file
+     endif
+-    if (xml_file%io_unit < unit_min) return
++    if (xml_file%io_unit < unit_min .or. xml_file%muted) return
+     io_unit = xml_file%io_unit
+     if (present(name) .or. present(unit)) then
+         inner_tag = 'value'

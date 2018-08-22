@@ -1,22 +1,23 @@
 from itertools import combinations
 import re
-from pkg_resources import resource_stream
+from pkg_resources import resource_stream, resource_filename
 
 from caf import collect
 from caf.app import UnfinishedTask
 from caf.Tools import geomlib
-from caf.Tools.geomlib import Atom
-from vdwsets import get_s22, get_x23, get_s66x8, Dataset, Cluster
+from caf.Tools.geomlib import Atom, Molecule
+from vdwsets import get_s22, get_x23, get_s66x8, get_s12l, Dataset, Cluster
 
 from .app import app, aims
 from .utils import chunks
-from .functasks import get_results, get_grid, integrate_atomic_vv
+from .functasks import get_results, get_grid, get_grid2, integrate_atomic_vv
 
 np = None
 
 aims_binary = 'aims-c68bd2f'
 aims_binary_atoms = 'aims-138e95e'
-aims_v3 = 'aims-7077a22'
+aims_v3 = 'aims-e7c3eb6'
+aims_v4 = 'aims-661b2f1'
 default_tags = dict(
     xc='pbe',
     spin='none',
@@ -78,8 +79,33 @@ async def get_x23_set():
 @app.route('s66')
 async def get_s66_set():
     data, ds = await get_dataset(get_s66x8())
-    alpha, = await collect(integrate_atomic_vv(label='s66/vv'))
+    alpha, = await collect(integrate_atomic_vv(dsname='s66', label='s66/vv'))
     return data, ds, alpha
+
+
+@app.route('s12l')
+async def get_s12l_set():
+    data, ds = await get_dataset(get_s12l())
+    alpha, = await collect(integrate_atomic_vv(dsname='s12l', label='s12l/vv'))
+    return data, ds, alpha
+
+
+@app.route('C6s')
+async def get_C6s_set():
+    import pandas as pd
+    all_coords = pd.read_hdf(resource_filename(__name__, 'data/C6-data.h5'), 'coords')
+    coros = []
+    for system, coords in all_coords.groupby('system'):
+        geom = Molecule.from_coords(
+            coords.species, coords[['x', 'y', 'z']].values
+        )
+        coros.append(taskgen('C6s', (system, 1.), 'main', geom))
+    data = await collect(*coros)
+    data = [x for x in data if x is not None]
+    data = pd \
+        .DataFrame(data, columns='label scale fragment data gridfile'.split()) \
+        .set_index('label scale fragment'.split())
+    return data
 
 
 async def taskgen(dsname, key, fragment, geom):
@@ -88,18 +114,23 @@ async def taskgen(dsname, key, fragment, geom):
     tags = default_tags.copy()
     if hasattr(geom, 'lattice'):
         tags['k_grid'] = geom.get_kgrid(0.8)
+    aims_version = aims_binary
+    if key == ('Benzene ... AcOH', 1.0) and fragment == 'fragment-1':
+        aims_version = aims_v4
+    tags['charge'] = geom.flags.get('charge', 0.)
     dft_task = await aims.task(
         geom=geom,
         basis='tight',
-        aims=aims_binary,
+        aims=aims_version,
         tier=2,
         label=label,
         tags=tags,
         extra_feat=[join_grids],
     )
+    my_get_grid = get_grid2 if dsname == 's12l' else get_grid
     results, grid_task = await collect(
         get_results(dft_task['results.xml'], label=f'{label}/results'),
-        get_grid(dft_task['grid.xml'], label=f'{label}/grid')
+        my_get_grid(dft_task['grid.xml'], label=f'{label}/grid')
     )
     return (
         *key, fragment, results,
@@ -257,11 +288,11 @@ async def get_surface():
             label=root,
             extra_feat=[join_grids],
         )
-        return await collect(
+        return dist, await collect(
             get_results(dft_task['results.xml'], label=f'{root}/results'),
             get_grid(dft_task['grid.xml'], label=f'{root}/grid')
         )
-    return await collect(*map(task, (2.7, 3, 3.3, 4, 8)))
+    return dict(await collect(*map(task, (2.7, 3, 3.15, 3.3, 3.6, 4, 5, 6, 7, 8, 10, 14))))
 
 
 def get_slab(lattice, species):

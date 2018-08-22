@@ -12,9 +12,22 @@
 \renewcommand{\captionfont}{\small}
 \renewcommand{\captionlabelfont}{\bfseries}
 
-\usepackage[sort&compress]{natbib}
+\usepackage[colon]{natbib}
 \bibliographystyle{abbrvnat}
-\renewcommand\cite{\citep}
+% \usepackage[sort&compress,super,comma]{natbib}
+% \bibliographystyle{achemso}
+% \AtBeginDocument{\nocite{achemso-control}}
+% \usepackage{natmove}
+% \usepackage{filecontents}
+% \begin{filecontents}{\jobname-achemso.bib}
+% @Control{achemso-control,
+%   ctrl-article-title  = "yes",
+%   ctrl-chapter-title  = "no",
+%   ctrl-doi            = "yes",
+%   ctrl-etal-number    = "10",
+%   ctrl-etal-firstonly = "no",
+% }
+% \end{filecontents}
 \usepackage{doi}
 
 \input{packages.tex}
