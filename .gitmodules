@@ -7,3 +7,6 @@
 [submodule "pymbd"]
 	path = _pymbd
 	url = ./_pymbd
+[submodule "pyatsol"]
+	path = _pyatsol
+	url = ./_pyatsol

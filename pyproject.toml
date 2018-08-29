@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "mbdvv"
+version = "0.1.0"
+description = ""
+authors = ["Jan Hermann <sci@janhermann.cz>"]
+
+[tool.poetry.dependencies]
+python = "3.6"
+caf = { path = "_caf" }
+vdwsets = { path = "_vdwsets" }
+pandas = "^0.23.4"
+numpy = "^1.15"
+tables = "^3.4"
+
+[tool.poetry.dev-dependencies]
+pymbd = { path = "_pymbd" }
+pyatsol = { path = "_pyatsol" }
+scipy = "^1.1"
+tqdm = "^4.25"
+matplotlib = "^2.2"
+mypy = "^0.620.0"
+ipykernel = "^4.9"
+lxml = "^4.2"
+flake8 = "^3.5"
+jinja2 = "^2.10"
+pyyaml = "^3.13"
+seaborn = "<0.9"
+tornado = "<5"
