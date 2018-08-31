@@ -15,6 +15,7 @@ tables = "^3.4"
 [tool.poetry.dev-dependencies]
 pymbd = { path = "_pymbd" }
 pyatsol = { path = "_pyatsol" }
+knitj = { path = "_knitj" }
 scipy = "^1.1"
 tqdm = "^4.25"
 matplotlib = "^2.2"

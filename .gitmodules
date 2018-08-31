@@ -10,3 +10,6 @@
 [submodule "pyatsol"]
 	path = _pyatsol
 	url = ./_pyatsol
+[submodule "knitj"]
+	path = _knitj
+	url = ./_knitj
