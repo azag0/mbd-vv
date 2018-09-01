@@ -8,12 +8,12 @@ authors = ["Jan Hermann <sci@janhermann.cz>"]
 python = "3.6"
 caf = { path = "_caf" }
 vdwsets = { path = "_vdwsets" }
+pymbd = { path = "_pymbd" }
 pandas = "^0.23.4"
 numpy = "^1.15"
 tables = "^3.4"
 
 [tool.poetry.dev-dependencies]
-pymbd = { path = "_pymbd" }
 pyatsol = { path = "_pyatsol" }
 knitj = { path = "_knitj" }
 scipy = "^1.1"
