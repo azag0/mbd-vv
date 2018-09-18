@@ -6,10 +6,10 @@
 	url = https://github.com/azag0/vdwsets.git
 [submodule "pymbd"]
 	path = _pymbd
-	url = ./_pymbd
+	url = https://github.com/azag0/libmbd.git
 [submodule "pyatsol"]
 	path = _pyatsol
 	url = ./_pyatsol
 [submodule "knitj"]
 	path = _knitj
-	url = ./_knitj
+	url = https://github.com/azag0/knitj.git

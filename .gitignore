@@ -5,3 +5,4 @@
 /data
 /media/*.svgz
 /.env
+/reports/*.html

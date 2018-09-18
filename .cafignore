@@ -1,9 +1,11 @@
 /notebooks/
+/reports/
 /patches/
-/data/
 /media/
 /pub/
 /build/
 /results/
+/_pyatsol/
+/_knitj/
 *.so
 *.so.dSYM

@@ -18,6 +18,7 @@ aims_binary = 'aims-c68bd2f'
 aims_binary_atoms = 'aims-138e95e'
 aims_v3 = 'aims-e7c3eb6'
 aims_v4 = 'aims-661b2f1'
+aims_v5 = 'aims-c9fe4b2'
 default_tags = dict(
     xc='pbe',
     spin='none',
@@ -79,15 +80,23 @@ async def get_x23_set():
 @app.route('s66')
 async def get_s66_set():
     data, ds = await get_dataset(get_s66x8())
-    alpha, = await collect(integrate_atomic_vv(dsname='s66', label='s66/vv'))
-    return data, ds, alpha
+    Cs = [0.0093, 0.0101]
+    alpha = await collect(*(
+        integrate_atomic_vv(dsname='s66', C=C, label=f's66/vv/{C}')
+        for C in Cs
+    ))
+    return data, ds, dict(zip(Cs, alpha))
 
 
 @app.route('s12l')
 async def get_s12l_set():
     data, ds = await get_dataset(get_s12l())
-    alpha, = await collect(integrate_atomic_vv(dsname='s12l', label='s12l/vv'))
-    return data, ds, alpha
+    Cs = [0.0093, 0.0101]
+    alpha = await collect(*(
+        integrate_atomic_vv(dsname='s12l', C=C, label=f's12l/vv/{C}')
+        for C in Cs
+    ))
+    return data, ds, dict(zip(Cs, alpha))
 
 
 @app.route('C6s')
@@ -282,7 +291,7 @@ async def get_surface():
         root = f'surface/{dist}'
         dft_task = await aims.task(
             geom=geom,
-            aims=aims_v3,
+            aims=aims_v5,
             basis='tight',
             tags=tags,
             label=root,

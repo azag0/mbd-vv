@@ -1,4 +1,7 @@
+import pandas as pd
+
 from .app import dir_python
+from .physics import nm_cutoff, lg_cutoff, lg_cutoff2, reduced_grad, alpha_kin, vv_pol
 
 
 @dir_python.function_task
@@ -41,30 +44,61 @@ def get_grid2(gridfile):
     df.to_hdf('grid.h5', 'grid')
 
 
+def calc_vvpol(x, freq, **kwargs):
+    idx = x.index
+    n = x.rho.values
+    grad = x.rho_grad_norm.values
+    kin = x.kin_dens.values
+    w = x.part_weight.values
+    rgrad = reduced_grad(n, grad)
+    alpha = alpha_kin(n, grad, kin)
+    cutoff_nm = nm_cutoff(rgrad, alpha)
+    cutoff_lg = lg_cutoff(rgrad, alpha)
+    cutoff_lg2 = lg_cutoff2(rgrad, alpha)
+    freq = freq[:, None]
+    x = pd.concat({
+        'vvpol': pd.DataFrame((vv_pol(n, grad, u=freq, **kwargs)*w).T),
+        'vvpol_nm': pd.DataFrame((vv_pol(n, grad, u=freq, **kwargs)*(w*cutoff_nm)).T),
+        'vvpol_lg': pd.DataFrame((vv_pol(n, grad, u=freq, **kwargs)*(w*cutoff_lg)).T),
+        'vvpol_lg2': pd.DataFrame((vv_pol(n, grad, u=freq, **kwargs)*(w*cutoff_lg2)).T),
+    }, axis=1)
+    x.index = idx
+    return x
+
+
+def evaluate_vv_batch(key, x, freq, C):
+    import pandas as pd
+
+    from .functasks import calc_vvpol
+
+    return key, (
+        pd
+        .concat(
+            dict(x.apply(lambda x: pd.read_hdf(x) if x else None)),
+            names='label scale fragment i_point'.split()
+        )
+        .assign(kin_dens=lambda x: x.kin_dens/2)
+        .set_index('i_atom', append=True)
+        .pipe(calc_vvpol, freq, C=C)
+        .groupby('scale fragment i_atom'.split()).sum()
+    )
+
+
 @dir_python.function_task
-def integrate_atomic_vv(dsname=None):
+def integrate_atomic_vv(dsname=None, C=None):
     from pymbd import MBDCalc
     import pandas as pd
     from mbdvv.app import app
-    from mbdvv.physics import terf, calc_vvpol
+    from mbdvv.functasks import evaluate_vv_batch
+    from multiprocessing import Pool
 
     with app.context():
         df = app.get(dsname)[0]
-
-    def rgrad_cutoff(rgrad, alpha):
-        return 1-(1-terf(rgrad, k=60, x0=0.12))*terf(alpha-10*rgrad, k=6, x0=0.7)
     with MBDCalc(4) as mbd_calc:
         freq = mbd_calc.omega_grid[0]
 
-    def f(x):
-        return (
-            pd
-            .concat(
-                dict(x.apply(lambda x: pd.read_hdf(x) if x else None)),
-                names='label scale fragment i_point'.split()
-            )
-            .set_index('i_atom', append=True)
-            .pipe(calc_vvpol, freq, rgrad_cutoff)
-            .groupby('scale fragment i_atom'.split()).sum()
-        )
-    df.gridfile.groupby('label').apply(f).to_hdf('alpha.h5', 'alpha')
+    args_list = [(key, x, freq, C) for key, x in df.gridfile.groupby('label')]
+    with Pool() as pool:
+        pd.concat(
+            dict(pool.starmap(evaluate_vv_batch, args_list))
+        ).to_hdf('alpha.h5', 'alpha')
