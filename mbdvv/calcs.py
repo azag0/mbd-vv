@@ -74,7 +74,13 @@ async def get_dataset(ds):
 
 @app.route('x23')
 async def get_x23_set():
-    return await get_dataset(get_x23())
+    data, ds = await get_dataset(get_x23())
+    Cs = [0.0093, 0.0101]
+    alpha = await collect(*(
+        integrate_atomic_vv(dsname='x23', C=C, label=f'x23/vv/{C}')
+        for C in Cs
+    ))
+    return data, ds, dict(zip(Cs, alpha))
 
 
 @app.route('s66')

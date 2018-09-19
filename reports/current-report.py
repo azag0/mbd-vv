@@ -1,5 +1,5 @@
 # ::hide
-# vim: set fo=croqnj spell:
+# vim: set fo=croqnj com=b\:#>,b\:# spell:
 from itertools import product
 import warnings
 from functools import partial
@@ -77,11 +77,12 @@ warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
 # $$
 # \mathbf T_{ij}^\text{lr}=\frac1{1+\exp\left(-6\Big(\frac{|\mathbf r|}{\beta(R_i^\text{vdw}+R_j^\text{vdw})}-1\Big)\!\right)}\boldsymbol\nabla\otimes\boldsymbol\nabla\frac1{|\mathbf r|}\Bigg|_{\mathbf r=\mathbf R_j-\mathbf R_i}
 # $$
-# with the vdW radii $R_i^\text{vdW}$ obtained by scaling free-atom radii with
-# ratio of Hirshfeld volumes in the molecule or material and in free atoms,
+# In the following sections, we will reuse the vdW radii derived from Hirshfeld
+# volumes that are used in MBD@rsSCS,
 # $$
 # R_i^\text{vdW}=R_i^\text{vdW,free}\left(\frac{V_i^\text{H}}{V_i^\text{H,free}}\right)^\frac13
 # $$
+# We will investigate other options in the penultimate section.
 #
 # This plain combination of the MBD approach and VV polarizability functional
 # already improves description of ionic systems compared to previous MBD
@@ -112,11 +113,6 @@ aims_data_s66, s66_ds, alpha_vvs_s66 = rp.setup_s66()
 
 # ::hide
 aims_data_solids, solids_pts, solids_ds, alpha_vvs_solids = rp.setup_solids()
-
-# ::>
-
-# ::hide
-aims_data_x23, x23_ds = rp.setup_x23()
 
 # ::>
 # **Table 1: Performance on the S66x8 data set.** The mean relative errors (MRE)
@@ -214,6 +210,8 @@ rp.specs_to_binding_enes([
 # The use of the vdW radii from static polarizabilities has a substantial effect
 # on the performance for main-group metals, reducing MRE from $-14\%$ to $-5\%$ for
 # MBD@VV.
+#
+# **Table 4: Performance on the data set of 63 solids.**
 
 # ::hide
 rp.specs_to_binding_enes(
@@ -515,7 +513,7 @@ def plot_benzene(axes):
         rp.plot_rgrad_alpha(ax, df)
         ax.set_title(label)
         ax2.hist(
-            df.rgrad, range=(0, .4), bins=100, weights=df.vvpol*df.part_weight/nmol,
+            df.rgrad, range=(0, .4), bins=100, weights=df.vvpol*df.part_weight,
             lw=0,
         )
 
@@ -593,7 +591,7 @@ g.map_dataframe(
 # orbital overlaps). $g_\mathrm{lg2}$ cuts of more of the low-gradient regions.
 # The adapted polarizability function then takes the following form,
 # $$
-#   \alpha^\text{nmVV/lgVV}[n]=g_\text{nm/lg}(s,\alpha)\alpha^\text{VV}[n]
+#   \alpha^\text{nmVV}[n]=g_\text{nm}(s,\alpha)\alpha^\text{VV}[n]
 # $$
 # The rationale for the $g_\text{lg}$ versions is that the contributions from the
 # noncovalent orbital overlaps (see Figure 3) significantly increase the
@@ -620,7 +618,7 @@ def plot_cutoff(ax, cutoff, title):
 fig, axes = plt.subplots(1, 3, figsize=(8, 2.5), sharex=True, sharey=True)
 plot_cutoff(axes[0], nm_cutoff, r'$g_\mathrm{nm}(s,\alpha)$')
 plot_cutoff(axes[1], lg_cutoff, r'$g_\mathrm{lg}(s,\alpha)$')
-plot_cutoff(axes[2], lg_cutoff2, r"$g_\mathrm{lg'}(s,\alpha)$")
+plot_cutoff(axes[2], lg_cutoff2, r'$g_\mathrm{lg2}(s,\alpha)$')
 
 
 # ::>
@@ -888,6 +886,7 @@ free_atoms_pts = rp.free_atoms_pts()
 
 # ::>
 
+# ::hide
 free_atoms_pts = (
     free_atoms_pts
     .reset_index('species')
@@ -903,7 +902,18 @@ free_atoms_pts = (
 
 # ::>
 # To understand what kinds of changes this normalization introduces, we
-# plot the errors in the
+# plot the errors in the $C_6$ coefficients of free atoms with the unnormalized
+# polarizability functionals (Figure 8). First, the TS and BG reference values
+# agree with each other to within 10% up to Kr, and then again for 5th-row
+# *p* elements, but there are significant discrepancies for 5th- and 5th-row
+# *d* elements (includes Ag, Pd, Pt, Au). Second, the VV functional is
+# relatively accurate for 1*s* and *p* elements, but substantially
+# underestimates the polarizability of *s* and *d* atoms that form metals.
+# Third, there is no substantial difference in evaluating the VV functional on
+# spherical or nonspherical free-atom densities, except for several elements,
+# crucially H, C, and N (Table 7). The spherical polarizabilities are always
+# larger, because the spherical densities are more diffuse, at least with the
+# PBE functional.
 
 # ::hide
 free_atoms_vv = (
@@ -914,17 +924,19 @@ free_atoms_vv = (
         for C_vv, sph in product([0.0093, 0.0101], [True, False])
     }, names='C_vv spherical'.split())
     .merge(rp.vdw_params.query('N == Z'), left_on='species', right_index=True, how='outer')
-    .sort_values('N')
+    .sort_index()
 )
 
 # ::>
+# **Figure 8: $C_6$ coefficients of free atoms across periodic table.**. TS and
+# BG refer to the two sets of high-level reference values. `sph` and `nonsph`
+# denotes whether the VV functional was evaluated on spherical
+# (spin-unpolarized) or nonspherical (spin-polarized) atomic densities.
 
-free_atoms_vv
 
-# ::>
-
-
+# ::hide
 def plot_species(ax, df, what, label=None, relative=False):
+    df = df.sort_values('N')
     what = df[what]
     if relative:
         what /= df['C6(BG)']
@@ -946,12 +958,15 @@ axes[1].set_xticks([2, 10, 18, 31, 36, 46, 54, 81, 86])
 axes[1].set_xticklabels('He Ne Ar Ga Kr Pd Xe Tl Rn'.split())
 axes[0].set_yscale('log')
 axes[0].set_ylabel('$C_6$')
-axes[1].set_ylabel('$C_6/C_6(BG)$')
+axes[1].set_ylabel(r'$C_6/C_6(\mathrm{BG})$')
 
 fig.legend(loc='center right', bbox_to_anchor=(1, .5))
 fig.subplots_adjust(right=0.8)
 
 # ::>
+# **Table 7: Relative differences of C6 coefficients to the TS reference.**
+# `diff` is the difference between the spherical and nonspherical columns. Shown
+# are elements with absolute `diff` larger than 9%.
 
 # ::hide
 (
@@ -965,7 +980,17 @@ fig.subplots_adjust(right=0.8)
 )
 
 # ::>
+# We repeat the procedure of optimizing the $C$ coefficients in the VV
+# functional, but now with the normalization to free-atom reference via
+# nonspherical free atoms. As a result, we optimize the ability of the functional
+# to predict relative changes to the atomic polarizabilities in molecules,
+# rather than absolute polarizabilities. Although the functional dependence of
+# MARE on $C_1$ and $C_2$ is substantially different with the normalization, the
+# minima are very close, which means that a single set of $(C_1,C_2)$ optimizes
+# both the absolute polarizabilities as well as the relative changes in
+# polarizabilities.
 
+# ::hide
 C6_my_pol_normed_nonsph_scan = pd.concat({
     (C1, C2): rp.evaluate_func_on_C6(
         partial(my_pol, C1=C1, C2=C2), C6_set_pts, ref_C6,
@@ -988,19 +1013,28 @@ rp.plot_matrix_df(
 )
 
 # ::>
+# In contrast, this is not the case when the spherical free atoms are used. In
+# that case, the optimal $C$ coefficient is pushed beyond 0.015. This is simply
+# because with spherical atoms, the VV functional severely overestimates the
+# polarizabilities, and the optimization attempts to artificially reduce this.
+# In the following, we will consider only the nonspherical free-atom reference,
+# unless explicitly stated otherwise.
 
+# ::hide
 C6_my_pol_normed_nonsph_scan \
     .groupby('C1 C2'.split()).apply(rp.dataset_stats)[['MARE']] \
     .unstack('C2')['MARE'].pipe(rp.findmin)
 
 # ::>
 
+# ::hide
 C6_my_pol_normed_nonsph_scan \
     .groupby('C1 C2'.split()).apply(rp.dataset_stats)['MARE'] \
     .loc[:, 0.].pipe(rp.findmin)
 
 # ::>
 
+# ::hide
 C6_my_pol_normed_sph_scan = pd.concat({
     (C1, C2): rp.evaluate_func_on_C6(
         partial(my_pol, C1=C1, C2=C2), C6_set_pts, ref_C6,
@@ -1024,17 +1058,23 @@ rp.plot_matrix_df(
 
 # ::>
 
+# ::hide
 C6_my_pol_normed_sph_scan \
     .groupby('C1 C2'.split()).apply(rp.dataset_stats)[['MARE']] \
     .unstack('C2')['MARE'].pipe(rp.findmin)
 
 # ::>
 
+# ::hide
 C6_my_pol_normed_sph_scan \
     .groupby('C1 C2'.split()).apply(rp.dataset_stats)['MARE'] \
     .loc[:, 0.].pipe(rp.findmin)
 
 # ::>
+# We also plot the distribution of relative errors in the C6 coefficients on the
+# data set of C6 coefficients. Since this set contains mostly organic compounds,
+# and the optimized VV functional is quite accurate for atoms H, C, N, O, the
+# normalization improves the errors only slightly.
 
 
 C6s_from_methods = pd.concat([
@@ -1061,15 +1101,15 @@ g = sns.FacetGrid(
 g.map(plt.scatter, 'ref', 'reldelta')
 
 # ::>
+# Next, we check what is the effect of normalization on the binding energies. On
+# the S66 set, the normalization has hardly any effect.
 
+# ::hide
 energies_s66_vvnorm = rp.specs_to_binding_enes([
     {},
     {'scs': True, 'beta': 0.83},
     {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True},
     {'vv': 'lg2', 'vv_norm': 'nonsph', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True},
-    {'vv': True, 'C_vv': 0.0093, 'beta': 0.87, 'Rvdw17_base': True},
-    {'vv': True, 'C_vv': 0.0093, 'beta': 0.8, 'Rvdw17_base': True},
-    {'vv': True, 'C_vv': 0.0093, 'vv_norm': 'sph', 'beta': 0.8, 'Rvdw17_base': True},
 ], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
 
 # ::>
@@ -1078,8 +1118,35 @@ energies_s66_vvnorm = rp.specs_to_binding_enes([
 energies_s66_vvnorm.groupby('method').apply(rp.dataset_scale_stats) \
     .loc(1)[:, ['MRE', 'MARE']].round(3)
 
+# ::>
+# As a diversion, here is a curiosity. Through experimentation, one can find a
+# particular combination of choices that make the resulting method quite
+# accurate, but this is most likely via cancellation of errors. This combination
+# is the unoptimized VV functional without any cutoffs and the normalization to
+# *spherical* atoms. As discussed above, the absence of any cutoffs makes the
+# $C_6$ coefficients of the complex larger, increasing the binding energies. But
+# the normalization to spherical atoms artificially decreases the $C_6$
+# coefficients substantially, hence decreasing the binding energies. In this
+# particular case, the cancellation of these two effects is perfect.
+
+# ::hide
+energies_s66_vverr = rp.specs_to_binding_enes([
+    {},
+    {'vv': True, 'C_vv': 0.0093, 'beta': 0.87, 'Rvdw17_base': True},
+    {'vv': True, 'C_vv': 0.0093, 'beta': 0.8, 'Rvdw17_base': True},
+    {'vv': True, 'C_vv': 0.0093, 'vv_norm': 'sph', 'beta': 0.8, 'Rvdw17_base': True},
+], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
 
 # ::>
+
+# ::hide
+energies_s66_vverr.groupby('method').apply(rp.dataset_scale_stats) \
+    .loc(1)[:, ['MRE', 'MARE']].round(3)
+
+# ::>
+# The effect of normalization can be further seen on the distribution of
+# relative differences of atomic $C_6$ coefficients to the TS Hirshfeld-scaled
+# coefficients over the monomers in the S66 set.
 
 # ::hide
 vdw_params_vvnorm_s66 = pd.concat(
@@ -1107,6 +1174,7 @@ vdw_params_vvnorm_s66 = pd.concat(
 
 # ::>
 
+# ::hide
 sns.FacetGrid(
     vdw_params_vvnorm_s66
     .set_index('species', append=True)
@@ -1124,7 +1192,14 @@ sns.FacetGrid(
 
 
 # ::>
+# On the solids data set, the normalization affects just the transition metals,
+# as expected. The $C_6$ coefficients of alkali metals are affected too, but
+# since they are small, the vdW contribution is negligible in any case. For
+# transition metals, the normalization increases the $C_6$ coefficients, and
+# hence increases the overbinding. This is more pronounced when using the BG
+# reference values, which are mostly larger than TS for the *d* elements.
 
+# ::hide
 energies_solids_vvnorm = rp.specs_to_binding_enes(
     [
         {},
@@ -1140,12 +1215,17 @@ energies_solids_vvnorm = rp.specs_to_binding_enes(
 
 # ::>
 
+# ::hide
 energies_solids_vvnorm.groupby('group method'.split(), sort=False) \
     .apply(rp.dataset_stats).unstack('group').swaplevel(0, 1, 1) \
     .loc(1)[:, ['N', 'MRE']].sort_index(1).round(3)
 
 # ::>
+# However, with the normalization and when using the TS references values, the
+# transition-metal $C_6$ coefficients from VV are now very close to the values
+# obtained by the vdW-surf approach (Table 8).
 
+# ::hide
 vdw_params_solids_vvnorm = pd.concat(
     dict(rp.evaluate_mbd_specs(
         [
@@ -1166,6 +1246,7 @@ vdw_params_solids_vvnorm = pd.concat(
 ).xs(1, level='scale').xs('crystal', level='fragment')
 
 # ::>
+# **Table 8: $C_6$ coefficients of main-group and transition metals.**
 
 # ::hide
 (
@@ -1189,28 +1270,64 @@ vdw_params_solids_vvnorm = pd.concat(
 # ::>
 # ## Van der Waals radii
 #
+# Up to now, the damping in all the MBD variants tested was always based on the
+# Hirshfeld-scaled reference vdW radii. In this section, we will investigate
+# other options.
 
+# ::hide
 energies_s66_vdw = rp.specs_to_binding_enes([
     {},
     {'scs': True, 'beta': 0.83},
-    # {'scs': True, 'beta': 0.78, 'no_vdwscs': True},
-    #
-    # {'scs': True, 'beta': 0.82, 'Rvdw_vol_scale': Fraction('1/7')},
-    # {'scs': True, 'beta': 0.82, 'Rvdw_vol_scale': Fraction('1/7'), 'Rvdw17_base': True},
-    # {'scs': True, 'beta': 0.82, 'Rvdw17': True},
-    #
-    # {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.79, 'Rvdw17': True},
-    # {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
-    #
-    {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'lg2', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+    {'scs': True, 'beta': 0.78, 'no_vdwscs': True},
+    {'scs': True, 'beta': 0.82, 'Rvdw_vol_scale': Fraction('1/7')},
+    {'scs': True, 'beta': 0.82, 'Rvdw_vol_scale': Fraction('1/7'), 'Rvdw17_base': True},
+    {'scs': True, 'beta': 0.82, 'Rvdw17': True},
+    {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.79, 'Rvdw17': True},
+    {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
+    {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
 ], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
 
 
 # ::>
+# In MBD@rsSCS, the vdW radii used in the MBD Hamiltonian are not only
+# Hirshfeld-scaled, but also further modified by the short-range screening.
+# Here, we find that this modification is not necessary if the $\beta$ parameter
+# is adjusted accordingly.
 
 # ::hide
 energies_s66_vdw.groupby('method').apply(rp.dataset_scale_stats) \
-    .loc(1)[:, ['MRE', 'MARE']].round(3)
+    .loc(1)[:, ['MRE', 'MARE']].round(3).iloc[[1, 2]]
+
+# ::>
+# MBD@rsSCS scales the free-atom vdW radii with a cubic root of the ratio of the
+# Hirshfeld volumes. Here, we find that this can be modified to the power of
+# 1/7. As a result, we can use the formula for vdW radii from static
+# polarizabilities not only for free atoms, but also for the atoms in molecules.
+
+# ::hide
+energies_s66_vdw.groupby('method').apply(rp.dataset_scale_stats) \
+    .loc(1)[:, ['MRE', 'MARE']].round(3).iloc[[3, 4, 5]]
+
+# ::>
+# This approach works also for MBD@VV. Note that the method in the first row of
+# the table does not use any free-atom reference data.
+
+# ::hide
+energies_s66_vdw.groupby('method').apply(rp.dataset_scale_stats) \
+    .loc(1)[:, ['MRE', 'MARE']].round(3).iloc[[6, 7]]
+
+# ::>
+# For reasons explained below, we may still need to use the 1/3 scaling rather
+# than 1/7 scaling. This works equally well for MBD@VV on the S66 set. The
+# range of errors is still somewhat larger than with MBD@rsSCS on the compressed
+# geometries, but except for that the behavior of this version of MB@VV is
+# equivalent to MBD@rsSCS. At compressed geometries, the short-range screening
+# is probably able to better capture the increased polarizability than the VV
+# functional.
+
+# ::hide
+energies_s66_vdw.groupby('method').apply(rp.dataset_scale_stats) \
+    .loc(1)[:, ['MRE', 'MARE']].round(3).iloc[[8]]
 
 # ::>
 
@@ -1236,16 +1353,14 @@ g._legend.set_title('equilibrium\ndistance scale')
 
 # ::>
 
+# ::hide
 energies_solids_vdw = rp.specs_to_binding_enes(
     [
         {},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True, 'vv_norm': 'aims'},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True, 'vv_norm': 'aims', 'vdw_ref': 'BG'},
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.79, 'Rvdw17': True},  # optimal beta
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims'},  # optimal beta
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims', 'vdw_ref': 'BG'},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'lg2', 'Rvdw17_base': True, 'vv_norm': 'aims'},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'aims'},
     ],
     solids_ds,
     aims_data_solids.loc(0)[:, 1.],
@@ -1254,39 +1369,43 @@ energies_solids_vdw = rp.specs_to_binding_enes(
 )
 
 # ::>
+# In the solids, the use of any vdW radii based on VV polarizabilities leads to smaller vdW
+# radii and hence stronger binding, resulting in improved performance for the ionic solids,
+# and decreased performance for the metals and carbides and nitrides. This may
+# seem like something we might want to avoid, but it may be necessary if we want
+# to achieve the same performance as the surf-family of methods for hybrid
+# interfaces (see below).
 
+# ::hide
 energies_solids_vdw.groupby('group method'.split(), sort=False) \
     .apply(rp.dataset_stats).unstack('group').swaplevel(0, 1, 1) \
     .loc(1)[:, ['N', 'MRE']].sort_index(1).round(3)
 
 # ::>
+# Finally, we show the vdW radii of atoms in metals obtained by various
+# approaches. The only one that gives small enough radii comparable to vdW-surf is
+# using the cubic-root scaling with rlg2VV polarizabilities and the TS reference
+# radii. Either of the following makes the vdW radii substantially larger: using
+# the 1/7-scaling or using free-atom vdW radii from the 1/7 formula.
 
+# ::hide
 vdw_params_solids_vdw = pd.concat(
     dict(rp.evaluate_mbd_specs(
         [
             {
-                'vv': 'lg2', 'C_vv': 0.0101, 'beta': np.nan, 'Rvdw17': True,
-                'vv_norm': 'aims', '_label': 'rlg2VV17'
+                'vv': 'lg2', 'C_vv': 0.0101, 'beta': np.nan, 'vv_norm': 'aims',
+                'Rvdw_scale_vv': 'cutoff', '_label': 'rlg2VV[1/3]'
             },
             {
-                'vv': 'lg2', 'C_vv': 0.0101, 'beta': np.nan, 'Rvdw17': True,
-                'vv_norm': 'aims', 'vdw_ref': 'BG', '_label': 'rlg2VV17[BG]'
+                'vv': 'lg2', 'C_vv': 0.0101, 'beta': np.nan, 'vv_norm': 'aims',
+                'Rvdw17': True, '_label': 'rlg2VV[1/7]'
             },
             {
-                'vv': True, 'C_vv': 0.0101, 'beta': np.nan, 'Rvdw17': True,
-                'vv_norm': 'aims', '_label': 'rVV17'
-            },
-            {
-                'C_vv': 0.0101, 'beta': np.nan, 'Rvdw_scale_vv': 'lg2',
-                'vv_norm': 'aims', '_label': 'rlg2VVscale'
-            },
-            {
-                'C_vv': 0.0101, 'beta': np.nan, 'Rvdw_scale_vv': 'lg2',
-                'Rvdw17_base': True, 'vv_norm': 'aims', '_label': 'rlg2VVscale17'
+                'vv': 'lg2', 'C_vv': 0.0101, 'beta': np.nan, 'vv_norm': 'aims',
+                'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, '_label': 'rlg2VV[1/3,17base]'
             },
             {'beta': np.nan, '_label': 'TS'},
-            {'beta': np.nan, 'Rvdw17_base': True, '_label': 'TS17'},
-            {'beta': np.nan, 'Rvdw17_base': True, 'vdw_ref': 'BG', '_label': 'TS17[BG]'},
+            {'beta': np.nan, 'Rvdw17_base': True, '_label': 'TS[17base]'},
         ],
         aims_data_solids.loc(0)[:, 1., 'crystal'],
         alpha_vvs_solids,
@@ -1318,3 +1437,140 @@ vdw_params_solids_vdw = pd.concat(
 
 # ::>
 # ## Further tests
+#
+# Here, we check performance on other systems besides S66 and the data set of
+# solids investigated above.
+#
+# On X23, the performance is comparable to MBD@rsSCS. Rather then overbinding,
+# the MBD@VV variants somewhat underbind, but the overall performance is the
+# same.
+
+# ::hide
+aims_data_x23, x23_ds, alpha_vvs_x23 = rp.setup_x23()
+
+# ::>
+
+# ::hide
+energies_x23_all = rp.specs_to_binding_enes(
+    [
+        {},
+        {'scs': True, 'beta': 0.83, 'kdensity': 0.8},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+    ], x23_ds, aims_data_x23, alpha_vvs_x23, free_atoms_vv, unit=kcal)
+
+# ::>
+
+# ::hide
+energies_x23_all.groupby('method', sort=False) \
+    .apply(rp.dataset_stats)[['MRE', 'MARE']].round(3)
+
+# ::>
+# On S12L, the performance is somewhat worse than with MBD@rsSCS, going from 5%
+# to 10%. In particular, the pi-pi complexes are underbound by 10% to 20%. We can understand
+# the origin of this underbinding by comparing between nmVV, lgVV, and lg2VV.
+# For pi-pi complexes, the difference between these three is up to 30% for the
+# buckyball catcher, whereas it is within 5% for the other complexes.
+
+# ::hide
+aims_data_s12l, s12l_ds, alpha_vvs_s12l = rp.setup_s12l()
+
+# ::>
+
+# ::hide
+energies_s12l_all = rp.specs_to_binding_enes(
+    [
+        {},
+        {'scs': True, 'beta': 0.83},
+        {'vv': 'nm', 'C_vv': 0.0101, 'beta': 0.87, 'Rvdw17_base': True},
+        {'vv': 'lg', 'C_vv': 0.0101, 'beta': 0.84, 'Rvdw17_base': True},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+    ], s12l_ds, aims_data_s12l, alpha_vvs_s12l, free_atoms_vv, unit=kcal)
+
+# ::>
+
+# ::hide
+energies_s12l_all.groupby('method', sort=False) \
+    .apply(rp.dataset_stats)[['MRE', 'MARE']].round(3)
+
+# ::>
+
+# ::hide
+energies_s12l_all['reldelta'].unstack('label').round(2)
+
+# ::>
+# ### Hybrid interface
+#
+# Here we consider an adsorption of a benzene molecule on a silver surface. The
+# surface is modeled with six layers of silver atoms and the periodic images of
+# the benzene molecules are well separated.
+
+# ::hide
+results_surface = rp.setup_surface()
+
+# ::>
+# Here we plot the atomic $C_6$ coefficients in a cross section of the layer. The
+# surface metallic atoms have significantly larger $C_6$ coefficients than the
+# bulk atoms.
+
+
+# ::hide
+def plot_surface_C6(ax):
+    payload = [('vv_pols', 'VV'), ('vv_pols_lg2', 'lg2VV')]
+    for vv_label, label in payload:
+        ax.scatter(
+            results_surface[3.3][0]['coords']['value'][2, :],
+            3/np.pi*np.sum(
+                results_surface[3.3][0][vv_label]**2 *
+                results_surface[3.3][0]['omega_grid_w'][:, None], 0
+            ),
+            label=label,
+        )
+    ax.legend()
+
+
+fig, ax = plt.subplots()
+plot_surface_C6(ax)
+
+# ::>
+
+
+# ::hide
+def tmp():
+    aims_data = pd.DataFrame(results_surface).T.rename_axis('scale') \
+        .rename(columns={0: 'data', 1: 'gridfile'}) \
+        .reset_index().assign(label='surface', fragment='all') \
+        .set_index('label scale fragment'.split())
+    return rp.evaluate_mbd_specs([
+        {},
+        {
+            'vv': 'lg2', 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff',
+            'vv_norm': 'aims', 'k_grid': (2, 2, 1), '_label': 'MBD@rlg2VV[scale]'
+        },
+        {
+            'vv': 'lg2', 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims',
+            'k_grid': (2, 2, 1), '_label': 'MBD@rlg2VV[1/7]'
+        },
+        {
+            'scs': True, 'beta': 0.83, 'vdw_ref': 'surf', 'k_grid': (2, 2, 1),
+            '_label': 'MBD@rsSCS[surf]'
+        },
+    ], aims_data)
+
+
+energies_surface_all = tmp()
+
+
+# ::>
+# And finally we calculate the binding energy curves. With the use of the
+# cubic root scaling of vdW radii, we achieve roughly the same vdW parameters as
+# in the vdW-surf approach, and also the resulting binding energies are very
+# similar to MBD@rsSCS[surf]. This is not the case when other approaches to the
+# vdW radii are used, which leads to weaker binding.
+
+# ::hide
+energies_surface_all.pipe(rp.ene_dft_vdw)['ene'].unstack('scale') \
+    .pipe(lambda df: df.apply(lambda y: y-df.iloc(1)[-1])).stack().to_frame('ene') \
+    .pipe(lambda df: df*ev).unstack('method')

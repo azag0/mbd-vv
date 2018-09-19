@@ -21,8 +21,16 @@ import matplotlib as mpl
 import matplotlib.cm  # noqa
 
 mbd = pymbd.interactive(4)
-vdw_params = pd.DataFrame(vdw_params).T.replace('', np.nan)
 _I = pd.IndexSlice
+
+vdw_params = pd.DataFrame(vdw_params).T.replace('', np.nan)
+vdw_params['C6(surf)'] = vdw_params['C6(TS)']
+vdw_params['alpha_0(surf)'] = vdw_params['alpha_0(TS)']
+vdw_params['R_vdw(surf)'] = vdw_params['R_vdw']
+_vdw_params_surf = pd.read_csv(resource_filename('mbdvv', 'data/vdw-surf.csv')) \
+    .set_index('label')
+vdw_params.loc[_vdw_params_surf.index, 'C6(surf) alpha_0(surf) R_vdw(surf)'.split()] = \
+    _vdw_params_surf.values
 
 pyatsol.data['Cr']['shell_occ'] = [2, 2, 6, 2, 6, 4, 2]
 pyatsol.data['Cu']['shell_occ'] = [2, 2, 6, 2, 6, 9, 2]
@@ -182,19 +190,18 @@ def mbd_from_data(aims_data,
                   vv=None, vv_norm=False, df_alpha_vv=None,
                   free_atoms_vv=None, Rvdw17_base=False,
                   Rvdw_vol_scale=1/3, Rvdw17=False, Rvdw_scale_vv=False,
-                  vdw_ref='TS', nm_diff=False, kdensity=None,
+                  vdw_ref='TS', nm_diff=False, kdensity=None, k_grid=None,
                   **kwargs):
     coords = aims_data['coords']['value'].T
     species = listify(aims_data['elems']['atom'])
     lattice = aims_data['lattice_vector']['value'].T \
         if 'lattice_vector' in aims_data else None
     if lattice is not None:
-        if kdensity is None:
-            k_grid = np.repeat(4, 3)
-        else:
-            k_grid = get_nk(aims_data['lattice_vector']['value'], kdensity)
-    else:
-        k_grid = None
+        if k_grid is None:
+            if kdensity is None:
+                k_grid = np.repeat(4, 3)
+            else:
+                k_grid = get_nk(aims_data['lattice_vector']['value'], kdensity)
     volumes = last(aims_data['volumes'])
     free_atoms = last(aims_data['free_atoms'])
     species_idx = free_atoms['species']-1
@@ -215,8 +222,8 @@ def mbd_from_data(aims_data,
     else:
         alpha_vv = last(aims_data['vv_pols']).copy()
         try:
-            alpha_vv_nm = last(aims_data['vv_pols_nm']).copy()
-        except KeyError:
+            alpha_vv_nm = last(aims_data['vv_pols_' + vv]).copy()
+        except (TypeError, KeyError):
             alpha_vv_nm = None
         alpha_vv_free = free_atoms['vv_pols'][:, species_idx]
         alpha_0_vv_free = alpha_vv_free[0]
@@ -225,7 +232,7 @@ def mbd_from_data(aims_data,
     vdw_params_i = vdw_params.loc(0)[species]
     alpha_0_free = vdw_params_i[f'alpha_0({vdw_ref})'].values
     C6_free = vdw_params_i[f'C6({vdw_ref})'].values
-    R_vdw_free = vdw_params_i[f'R_vdw'].values
+    R_vdw_free = vdw_params_i['R_vdw' if vdw_ref != 'surf' else 'R_vdw(surf)'].values
 
     def vv_normalize(alpha_0, C6):
         alpha_0 = alpha_0*alpha_0_free/alpha_0_vv_free
@@ -239,7 +246,8 @@ def mbd_from_data(aims_data,
         C6_vv_nm = 3/np.pi*np.sum(freq_w[:, None]*alpha_vv_nm**2, 0)
         alpha_0, C6 = alpha_vv_nm[0], C6_vv_nm
     else:
-        alpha_0, C6, _ = from_volumes(species, volumes/volumes_free, kind=vdw_ref)
+        alpha_0 = alpha_0_free*(volumes/volumes_free)
+        C6 = C6_free*(volumes/volumes_free)**2
     if vv is not None and vv_norm:
         alpha_0, C6 = vv_normalize(alpha_0, C6)
     if Rvdw17:
@@ -247,10 +255,11 @@ def mbd_from_data(aims_data,
     else:
         if Rvdw17_base:
             R_vdw_free = 2.5*alpha_0_free**(1/7)
+        assert Rvdw_scale_vv in {True, False, 'cutoff'}
         if Rvdw_scale_vv is True:
-            vol_scale = df_alpha_vv['alpha_vv'][0]/alpha_0_vv_free
-        elif isinstance(Rvdw_scale_vv, str):
-            vol_scale = df_alpha_vv['alpha_vv_' + Rvdw_scale_vv][0]/alpha_0_vv_free
+            vol_scale = alpha_vv[0]/alpha_0_vv_free
+        elif Rvdw_scale_vv == 'cutoff':
+            vol_scale = alpha_vv_nm[0]/alpha_0_vv_free
         else:
             vol_scale = volumes/volumes_free
         R_vdw = R_vdw_free*vol_scale**Rvdw_vol_scale
@@ -276,7 +285,8 @@ known_spec_flags = {
     'rpa', 'scs', 'Rvdw17', 'vv_norm', 'ts', 'ord2',
     'beta', 'damping', 'param_a', 'Rvdw_vol_scale', 'C_vv',
     'vdw_ref', 'Rvdw17_base', 'vv', 'no_eigscale', 'scr_damping',
-    'Rvdw_scale_vv', 'vdwscs', 'no_vdwscs', 'nm_diff',
+    'Rvdw_scale_vv', 'vdwscs', 'no_vdwscs', 'nm_diff', 'kdensity',
+    'k_grid',
 }
 
 
@@ -388,7 +398,7 @@ def process_cluster(df, ds):
         'ene': ene,
         'delta': delta,
         'reldelta': delta/abs(ref),
-        'group': cluster_df.group
+        'group': cluster_df.get('group')
     }))
     return df
 
@@ -592,10 +602,26 @@ def setup_s66():
     return aims_data, ds, alpha_vvs
 
 
+def setup_s12l():
+    with app.context():
+        aims_data, ds, alpha_vvs = app.get('s12l')
+    alpha_vvs = pd.concat({
+        C: pd.read_hdf(alpha_vv['alpha.h5'].path)
+        for C, alpha_vv in alpha_vvs.items()
+    }, names=['C_vv'])
+    alpha_vvs.index = alpha_vvs.index.set_names('label', 1)
+    return aims_data, ds, alpha_vvs
+
+
 def setup_x23():
     with app.context():
-        aims_data, ds = app.get('x23')
-    return aims_data, ds
+        aims_data, ds, alpha_vvs = app.get('x23')
+    alpha_vvs = pd.concat({
+        C: pd.read_hdf(alpha_vv['alpha.h5'].path)
+        for C, alpha_vv in alpha_vvs.items()
+    }, names=['C_vv'])
+    alpha_vvs.index = alpha_vvs.index.set_names('label', 1)
+    return aims_data, ds, alpha_vvs
 
 
 def setup_solids():
@@ -626,6 +652,11 @@ def setup_solids():
         for C_vv in [0.0093, 0.0101]
     }, names=['C_vv'])
     return aims_data['solids'], pts, ds, alpha_vvs
+
+
+def setup_surface():
+    with app.context():
+        return app.get('surface')
 
 
 def free_atoms_pts():
