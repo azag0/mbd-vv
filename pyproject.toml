@@ -6,16 +6,16 @@ authors = ["Jan Hermann <sci@janhermann.cz>"]
 
 [tool.poetry.dependencies]
 python = "3.6"
-caf = { path = "_caf" }
-vdwsets = { path = "_vdwsets" }
-pymbd = { path = "_pymbd" }
+caf = { path = "_caf", develop = true }
+vdwsets = { path = "_vdwsets", develop = true }
+pymbd = { path = "_pymbd", develop = true }
 pandas = "^0.23.4"
 numpy = "^1.15"
 tables = "^3.4"
 
 [tool.poetry.dev-dependencies]
-pyatsol = { path = "_pyatsol" }
-knitj = { path = "_knitj" }
+pyatsol = { path = "_pyatsol", develop = true }
+knitj = { path = "_knitj", develop = true }
 scipy = "^1.1"
 tqdm = "^4.25"
 matplotlib = "^2.2"
