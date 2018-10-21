@@ -27,14 +27,14 @@
 
 \input{text.tex}
 
-\subsection{Acknowledgements}
+\subsection{Acknowledgments}
 
 \subsection{Supporting Information}
 
 \begingroup
 \setlength\bibsep{0pt}
 \footnotesize
-\bibliography{refs-zotero,refs,\jobname-achemso}
+\bibliography{refs-zotero}
 \endgroup
 
 \end{document}
