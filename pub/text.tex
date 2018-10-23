@@ -120,7 +120,7 @@ The distributions are calculated over all atoms from all complexes in the S66 da
 Apart from proper treatment of metals, we use the cutoff function $g$ for another purpose.
 When molecules are brought together to form vdW-bound compounds, the introduction of density-tail overlaps significantly increases the polarizability in a model such as the VV functional (Figure~\ref{fig:pol-hists}a).
 For instance, the VV polarizability per molecule goes from 62 (a.\,u.) in benzene monomer, to 67 in benzene dimer, to 92 in benzene crystal.
-This effect is an artifact of the VV functional that overbinds increasingly large vdW-bound systems.
+This effect is an artifact of the VV functional that causes increasingly large vdW-bound systems to be overbound.
 To eliminate this issue, we extend the region in which the cutoff function $g$ is zero to all low-gradient regions with $\chi>1$.
 This does not affect the polarizabilities of organic monomers, but ensures that the increase in polarizability from monomers to dimers is less than 1\% on average (Figure~\ref{fig:pol-shifts}).
 
@@ -128,39 +128,21 @@ This does not affect the polarizabilities of organic monomers, but ensures that 
 \centering
 \includegraphics{../media/vv-periodic-table.pdf}
 \caption{\textbf{Relative errors in VV polarizabilities of free atoms for first 54 elements.}
+The reference values are the same as used in the TS method.
 }\label{fig:vv-periodic-table}
 \end{figure}
 
-The VV polarizability functional is only approximate, which is manifest already for free-atom polarizabilities and $C_6$ coefficients, where accurate reference values are known.
-To mitigate this error, we normalize the VV quantities with the ratio of the free-atom polarizabilities and $C_6$ coefficients as calculated by the VV functional and as given by reference calculations,
+The VV polarizability functional is only approximate, which is manifest already for free-atom polarizabilities and $C_6$ coefficients, where accurate reference values are known (Figure~\ref{fig:vv-periodic-table}).
+Whereas the VV functional reproduces atoms of nonmetallic elements quite accurately (especially the important carbon atom with error less than 2\%), the polarizabilities and $C_6$ coefficients of atoms of metallic elements are substantially underestimated.
+To mitigate this error, we normalize the VV atomic quantities with the ratio of the free-atom polarizabilities and $C_6$ coefficients as calculated by the VV functional and as obtained from accurate reference calculations,
 \begin{equation}
-  \alpha_{0,i}^\text{rVV}=\alpha_{0,i}^\text{nmVV}\frac{\alpha_{0,i}^\text{ref,free}}{\alpha_{0,i}^\text{VV,free}},\quad
-  C_{6,i}^\text{rVV}=C_{6,i}^\text{nmVV}\frac{C_{6,i}^\text{ref,free}}{C_{6,i}^\text{VV,free}}
+  \alpha_{0,i}^\text{rVV$'$}=\alpha_{0,i}^\mathrm{VV'}\frac{\alpha_{0,i}^\text{ref,free}}{\alpha_{0,i}^\text{VV$'$,free}},\quad
+  C_{6,i}^\text{rVV$'$}=C_{6,i}^\mathrm{VV'}\frac{C_{6,i}^\text{ref,free}}{C_{6,i}^\text{VV$'$,free}}
 \end{equation}
-This correction assumes that any error in $\alpha^\text{VV}[n]$ (or $\alpha^\text{nmVV}[n]$) is at least partially transferable from free atoms to atoms in molecules and materials.
-Alternatively, this step can be seen as a modification of the TS method \citep{TkatchenkoPRL09}, in which the scaling of reference free-atom quantities by Hirshfeld volumes is replaced with that by VV-derived polarizabilities and $C_6$ coefficients.
+This correction assumes that any error in the VV functional is at least partially transferable from free atoms to atoms in compounds.
+Alternatively, the normalization can be seen as a modification of the TS approach~\citep{TkatchenkoPRL09}, in which the ratios of Hirshfeld volumes are replaced with ratios of VV polarizabilities and $C_6$ coefficients.
 
-Finally, we use the same definition of $\mathbf T^\text{lr}$ as in the MBD@rsSCS variant \citep{AmbrosettiJCP14},
-\begin{equation}
-  \mathbf T_{ij}^\text{lr}=\frac1{1+\exp\left(-6\Big(\frac{|\mathbf r|}{\beta(R_i^\text{vdw}+R_j^\text{vdw})}-1\Big)\!\!\right)}\boldsymbol\nabla\otimes\boldsymbol\nabla\frac1{|\mathbf r|}\Bigg|_{\mathbf r=\mathbf R_j-\mathbf R_i}
+Finally, MBD@VV uses the same from of $\mathbf T^\text{lr}$ as the MBD@rsSCS variant~\citep{AmbrosettiJCP14}, but with a different definition of the vdW radii.
+Rather than using tabulated free-atom vdW radii, we use the simple formula for a vdW radius of \citet{FedorovPRL18}, and rather than with ratios of Hirshfeld volumes, these free-atom vdW radii are scaled with the ratios of VV polarizability of an atom in a compound and of a free atom,\begin{equation}
+  R_i^\text{vdW}=\tfrac52{(\alpha_{0,i}^\text{ref,free})}^\frac17{\left(\frac{\alpha_i^\mathrm{VV'}}{\alpha_i^\text{VV$'$,free}}\right)}^\frac13
 \end{equation}
-with the vdW radii $R_i^\text{vdW}$ obtained by scaling free-atom radii with ratio of Hirshfeld volumes in the molecule or material and in free atoms,
-\begin{equation}
-  R_i^\text{vdW}=R_i^\text{vdW,free}{\left(\frac{V_i^\text{H}}{V_i^\text{H,free}}\right)}^\frac13,\quad
-  R_i^\text{vdW,free}=\tfrac52{(\alpha_{0,i}^\text{free})}^\frac17
-\end{equation}
-The only novel minor modification is that the free-atom radii are calculated from free-atom static polarizabilities \citep{FedorovPRL18} rather than taken as external input.
-
-\section{Results}
-
-\section{Discussion}
-
-Hirshfeld partitioning/Hirshfeld volumes, sensitivity to choice of partitioning.
-
-How double-counting is treated
-
-Discuss short/long-range nature of fluctuations in metals, screening.
-
-Discuss $g_\text{nm}$.
-
-\section{Conclusions}

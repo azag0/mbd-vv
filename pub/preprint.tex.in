@@ -4,7 +4,7 @@
 
 \begin{document}
 
-\twocolumn[{
+\twocolumn[{%
   \maketitle
   \vspace{-3em}
   \begin{center}
@@ -27,12 +27,9 @@
 
 \input{text.tex}
 
-\subsection{Acknowledgments}
-
-\subsection{Supporting Information}
-
 \begingroup
 \setlength\bibsep{0pt}
+\renewcommand{\section}[2]{}
 \footnotesize
 \bibliography{refs-zotero}
 \endgroup
