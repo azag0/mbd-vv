@@ -13,12 +13,7 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 import seaborn as sns
 
-sns.set(
-    style='ticks',
-    context='paper', rc={
-        'axes.formatter.useoffset': False,
-    }
-)
+sns.set(style='ticks', context='paper')
 mpl.rc('font', family='serif', serif='STIXGeneral')
 mpl.rc('mathtext', fontset='stix')
 
@@ -68,16 +63,15 @@ def plot_species(ax, df, num, den, label=None):
     ax.plot(df['N'], what.values, label=label)
 
 
-fig, ax = plt.subplots(figsize=(3.5, 1.5))
+fig, ax = plt.subplots(figsize=(3.5, 1.1))
 ax.axhline(1, color='black')
 plot_species(ax, free_atoms_vv.loc(0)[0.0093, False], 'C6', 'C6(TS)', 'VV')
-ax.set_xlim(0, 54)
-ax.set_xticks([2, 10, 18, 31, 36, 54])
-ax.set_xticklabels('He Ne Ar Ga Kr Xe'.split())
-ax.set_xlabel('$Z$')
-ax.set_ylim(0, 1.5)
+ax.set_xlim(1, 54)
+ax.set_xticks([2, 10, 18, 30, 36, 48, 54])
+ax.set_xticklabels('He Ne Ar Zn Kr Cd Xe'.split())
+ax.set_ylim(0, None)
 ax.set_yticks([0, 1])
-ax.set_ylabel(r'$C_6(\mathrm{VV})/C_6(\mathrm{TS})$')
+ax.set_ylabel(r'$C_6^\mathrm{VV}/C_6^\mathrm{ref}$')
 
 savefig(fig, 'vv-periodic-table')
 
@@ -112,8 +106,10 @@ else:
 fig, axes = plt.subplots(
     2, 3, figsize=(4, 3), gridspec_kw=dict(hspace=0.3, wspace=0.1)
 )
-for ax, (group, df) in zip(axes.flat, solids_vv.groupby('group')):
-    rp.plot_rgrad_alpha(ax, df)
+grouped = solids_vv.groupby('group')
+for ax, group in zip(axes.flat, solid_groups.values()):
+    df = grouped.get_group(group)
+    im = rp.plot_rgrad_alpha(ax, df, norm=62)[-1]
     ax.set_title(group)
     ax.set_xticks([0, 0.3])
     ax.set_yticks([0, 1, 10])
@@ -121,14 +117,16 @@ for i, j in product(range(axes.shape[0]), range(axes.shape[1])):
     ax = axes[i, j]
     if (i, j) in {(1, 0), (1, 1), (0, 2)}:
         ax.set_xticklabels([0, 0.3])
-        ax.set_xlabel(r'$s$')
+        ax.set_xlabel(r'$s[n]$')
     else:
         ax.set_xticklabels([])
     if j == 0:
         ax.set_yticklabels([0, 1, 10])
-        ax.set_ylabel(r'$\alpha$')
+        ax.set_ylabel(r'$\chi[n]$')
     else:
         ax.set_yticklabels([])
+fig.colorbar(im, ax=axes[-1, -1], fraction=1)
+axes[0, 2].set_xlabel(r'$\hspace{2}s[n]$')
 axes[-1, -1].set_visible(False)
 
 savefig(fig, 'solids-hists')
@@ -137,11 +135,11 @@ aims_data_s66, _, alpha_vvs_s66 = rp.setup_s66()
 aims_data_x23, _, _ = rp.setup_x23()
 
 fig, axes = plt.subplots(
-    1, 3, figsize=(4, 1.2), gridspec_kw=dict(wspace=0.1), sharey=True
+    1, 3, figsize=(4, 1.3), gridspec_kw=dict(wspace=0.1), sharey=True
 )
 payload = zip(
     axes,
-    ['molecule', 'dimer', 'crystal'],
+    ['monomer', 'dimer', 'crystal'],
     [1, 2, 4],
     [
         aims_data_s66.loc(0)['Benzene ... AcOH', 1.0, 'fragment-1'],
@@ -165,10 +163,10 @@ for ax, label, nmol, row in payload:
     ax.set_title(label)
     ax.set_xticks([0, 0.3])
     ax.set_xticklabels([0, 0.3])
-    ax.set_xlabel(r'$s$')
+    ax.set_xlabel(r'$s[n]$')
     ax.set_yticks([0, 1, 10])
     ax.set_yticklabels([0, 1, 10])
-    ax.set_ylabel(r'$\alpha$')
+axes[0].set_ylabel(r'$\chi[n]$')
 
 savefig(fig, 'benzene')
 
@@ -215,7 +213,6 @@ for ax, method in payload:
     ax.set_xlabel(r'$\Delta_\mathrm{rel}$')
     ax.set_yticks([])
     ax.set_title({'lg2VV': r"$\mathrm{VV}\prime$"}.get(method, method))
-axes[0].set_ylabel('$N$')
 axes[0].legend(
     labels=[r'$\alpha_0$', '$C_6$'],
     loc='upper center',

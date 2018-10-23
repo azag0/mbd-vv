@@ -43,6 +43,9 @@ pyatsol.data['Pd']['shell_l'] = [0, 0, 1, 0, 1, 2, 0, 1, 2, 0]
 pyatsol.data['Pd']['shell_occ'] = [2, 2, 6, 2, 6, 10, 2, 6, 8, 2]
 pyatsol.data['Ag']['shell_occ'] = [2, 2, 6, 2, 6, 10, 2, 6, 9, 2]
 
+my_cm = mpl.cm.get_cmap('magma')
+my_cm.set_bad((0, 0, 0))
+
 
 def _array(obj, *args, **kwargs):
     if obj is not None:
@@ -59,22 +62,6 @@ class NegativeEigs(MBDException):
 
 class NegativeAlpha(MBDException):
     pass
-
-
-def my_cm():
-    cm = mpl.cm.get_cmap('magma')
-    cm.set_bad((0, 0, 0))
-    return cm
-
-
-class MyLogNorm(mpl.colors.LogNorm):
-    def autoscale_None(self, A):
-        if self.vmin is not None and self.vmax is not None:
-            return
-        A = np.ma.masked_less_equal(A, 0, copy=False)
-        if self.vmax is None and A.size:
-            self.vmax = A.max()
-        self.vmin = self.vmax/self.vmin
 
 
 def scaled_eigs(x):
@@ -540,14 +527,17 @@ def plot_matrix_df(ax, df, **kwargs):
     return plot
 
 
-def plot_rgrad_alpha(ax, df):
+def plot_rgrad_alpha(ax, df, norm=None):
+    weights = df.vvpol*df.part_weight
+    if norm is not None:
+        weights = weights/np.sum(weights)*norm
     return ax.hist2d(
         df.rgrad, df.alpha,
-        range=[(0, .4), (0, 12)],
+        range=[(-.4/100, .4), (0, 12)],
         bins=100,
-        weights=df.vvpol*df.part_weight,
-        norm=MyLogNorm(1e3),
-        cmap=my_cm()
+        weights=weights,
+        norm=mpl.colors.LogNorm(1e-3, 4, clip=True),
+        cmap=my_cm,
     )
 
 
