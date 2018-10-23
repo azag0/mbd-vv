@@ -3,6 +3,7 @@ DashExcpt = {
     exchange--correlation
     Monte--Carlo
     fluctuation--dissipation
+    Kohn--Sham
 }
 CmdLine = {
 }
