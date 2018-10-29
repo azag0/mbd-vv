@@ -1,29 +1,27 @@
-Intermolecular interactions dictate thermodynamic properties of molecular solids, layered materials, and soft matter in general, including most biological matter, and govern molecular adsorption and self-assembly, including most biological processes.
-Van der Waals (vdW) forces, which emerge from correlations in the quantum fluctuations of electron density, are the only kind of intermolecular interactions with quantum-mechanical origin, and consequently give rise to a wide spectrum of physical phenomena, ranging from attraction between small organic molecules~\citep{LondonZP30}, to shifts in optical spectra of nanoparticles~\citep{LuoP14}, to the macroscopic Casimir effect~\citep{JaffePRD05}.
-As a result, vdW interactions have been, and are increasingly so, one of the prime targets of material modeling, which has led to a plethora of approaches that either treat vdW forces implicitly or model them explicitly~\citep{KlimesJCP12,HermannCR17}.
-These include quantum Monte--Carlo~\citep{AmbrosettiJPCL14}, coupled clusters~\citep{YangS14}, random-phase approximation~\citep{LuPRL09}, nonlocal density functionals~\citep{DionPRL04,VydrovPRL09}, and coarse-grained approaches, which range from pairwise~\citep{GrimmeJCC04,BeckeJCP07,TkatchenkoPRL09} to many-body models~\citep{TkatchenkoPRL12,SilvestrelliJCP13}.
+Van der Waals (vdW) interactions originate from nonlocal correlations in the quantum motion of electrons, and give rise to a wide spectrum of physical phenomena, ranging from attraction between two atoms~\citep{LondonZP30} to the macroscopic Casimir effect~\citep{JaffePRD05}.
+They dictate thermodynamic properties of many molecular solids, layered and nanostructured materials, and biological compounds, and govern processes such as molecular adsorption and self-assembly, including most biological processes.
+As a result, vdW interactions have been, and are increasingly so, one of the prime targets of material modeling, which has led to a plethora of approaches that either treat vdW forces implicitly or model them explicitly~\citep{KlimesJCP12,GrimmeCR16,HermannCR17}.
+These include quantum Monte--Carlo~\citep{AmbrosettiJPCL14} (QMC), coupled clusters~\citep{YangS14}, random-phase approximation~\citep{LuPRL09}, nonlocal density functionals~\citep{DionPRL04,VydrovPRL09}, and coarse-grained approaches, which range from pairwise~\citep{GrimmeJCC04,BeckeJCP07,TkatchenkoPRL09} to many-body models~\citep{TkatchenkoPRL12,SilvestrelliJCP13}.
 From theoretical perspective, this status quo is undesirable, because different models often give disparate pictures of the nature of vdW forces, which leads to incoherent understanding of vdW interactions in molecules and materials.
 From practical perspective, the three main characteristics of a method are its applicability, accuracy, and computational efficiency, and so far, no single method has satisfied all three requirements with respect to vdW forces to such a degree, that it would be reliably applicable to all the relevant types of materials.
+For instance, QMC and coupled clusters are limited by computational efficiency, pairwise approaches lack in accuracy for nanostructured and supramolecular compounds, and coarse-grained models have qualitative problems with description of ionic and hybrid metal-organic systems.
 
 In this Letter, we present a unified density-functional model of vdW interactions that combines ingredients from nonlocal functionals and coarse-grained models, inheriting broad applicability of the former and good accuracy of the latter, while retaining the computational efficiency of both.
-We use the polarizability functional of \citet{VydrovPRA10} (VV), the Hamiltonian form of the many-body dispersion (MBD) model~\citep{TkatchenkoJCP13}, the idea of normalization to jellium via a zero-gradient limit from the VV10 nonlocal functional~\citep{VydrovJCP10a}, and normalization to reference free-atom vdW parameters coined by the exchange-hole dipole moment model~\citep{BeckeJCP06} and the vdW model of \citet{TkatchenkoPRL09} (TS).
-Compared to the range-separated self-consistently screened (rsSCS) variant of MBD~\citep{AmbrosettiJCP14}, the use of the VV polarizability functional in the new model enables consistent treatment of ionic compounds, and normalization to jellium enables effective modeling of adsorption on metallic surfaces~\citep{RuizPRL12}, while normalization to free-atom reference values improves the accuracy of the VV polarizability functional for transition metals.
+We integrate the polarizability functional of \citet{VydrovPRA10} (VV), normalization to reference free-atom vdW parameters coined by the exchange-hole dipole moment model~\citep{BeckeJCP06} and the vdW model of \citet{TkatchenkoPRL09} (TS), the idea of normalization to jellium via a zero-gradient limit from the VV10 nonlocal functional~\citep{VydrovJCP10a}, and the Hamiltonian form of the many-body dispersion (MBD) model~\citep{TkatchenkoJCP13}.
+Compared to the range-separated self-consistently screened (rsSCS) variant of MBD~\citep{AmbrosettiJCP14}, the use of the VV polarizability functional in the new model enables consistent treatment of ionic compounds, normalization to free-atom reference values balances the accuracy of the VV polarizability across the periodic table, while normalization to jellium enables effective modeling of adsorption on metallic surfaces~\citep{RuizPRL12}.
 Furthermore, the VV functional---unlike approaches based on Hirshfeld volumes---
 is able to capture short-range many-body polarization effects, so that the short-range screening of atomic polarizabilities is not needed in the new model, reducing the overall computational cost by an order of magnitude compared to MBD@rsSCS\@.
+In our consideration, a similar level of empiricism is involved in the construction of the new model compared to MBD@rsSCS\@.
+On one hand we remove the need for tabulated reference vdW radii and for the short-range screening, on the other we introduce new mechanisms that contain some quantitative empirical choices.
+However, these choices are motivated by well-understood goals, and can be justified qualitatively without resorting to empirical arguments.
 We demonstrate on a series of benchmark calculations that our new model enables for the first time consistent treatment of vdW interactions in covalent, ionic, and hybrid metal-organic interfaces by a single method, while achieving the accuracy of the best approaches for each of these material types.
 
 The central proposition of the new model, dubbed MBD@VV, is to parameterize the Hamiltonian of the MBD model with the VV polarizability functional.
-The MBD Hamiltonian describes a system of charges in harmonic potentials---Drude oscillators---characterized by their static polarizabilities $\alpha_{0,i}$ and resonance frequencies $\omega_i$, and interacting via a long-range dipole potential $\mathbf T^\mathrm{lr}(\mathbf R)\equiv f(R)\mathbf T(\mathbf R)$,
-\begin{multline}
-  H^\text{MBD}(\{\alpha_{0,i},\omega_i\})=\sum_i-\frac12\nabla_{\xi_i}^2+\sum_i\frac12\omega_i^2\xi_i^2 \\
-  +\frac12\sum_{ij}\omega_i\omega_j\sqrt{\alpha_{0,i}\alpha_{0,j}}\boldsymbol{\xi}_i\cdot\mathbf T^\mathrm{lr}_{ij}\boldsymbol{\xi}_j
-\end{multline}
-where $\boldsymbol\xi_i\equiv\sqrt{m_i}\mathbf x_i$ are mass-weighted displacements of the charges.
-To calculate the vdW energy, each oscillator is parametrized such that it models the polarization response of a single atom in a molecule or material.
-The interaction energy of this model system---the vdW energy---is then readily obtained by direct diagonalization of the Hamiltonian.
-The shortcomings of MBD@rsSCS in description of ionic compounds and hybrid interfaces do not originate from the form of the Hamiltonian nor the long-range coupling, but rather from the model for polarizabilities and oscillator frequencies, whose improvement is the main focus of this work.
-
-In MBD@VV, we parametrize the oscillators by coarse-graining the VV polarizability density to Hirshfeld fragments~\citep{HirshfeldTCA77,SatoJCP09,SatoJCP10}.
+In general, each vdW model consists of two main ingredients: a model for the noninteracting polarization response and the model for long-range coupling of this response.
+The shortcomings of many existing vdW approaches in description of ionic compounds and hybrid interfaces do not originate from the model for the coupling, but rather from the model for polarization response.
+Its improvement is the main focus of this work.
+In the case of coarse-grained models, such as MBD, the model for the response translates into a model for static polarizabilities $\alpha_{0,i}$ and $C_{6,i}$ coefficients of the interacting fragments (usually atoms).
+In MBD@VV, we parametrize the response of atoms by coarse-graining the VV polarizability density to Hirshfeld fragments~\citep{HirshfeldTCA77,SatoJCP09,SatoJCP10}.
 The VV functional is a semilocal functional of the electron density $n(\mathbf r)$, which models local isotropic dynamic polarizability density,
 \begin{equation}
    \alpha^\text{VV}[n](\mathbf r,\mathrm iu)=\frac{n(\mathbf r)}{\frac{4\pi}3n(\mathbf r)+C\frac{{|\boldsymbol\nabla n(\mathbf r)|}^4}{n{(\mathbf r)}^4}+u^2}
@@ -34,20 +32,40 @@ The atomic dynamic polarizabilities are obtained by integrating the polarizabili
 \begin{equation}
   \alpha_i^\text{VV}(\mathrm iu)=\int\mathrm d\mathbf r\,w_i^\text{H}(\mathbf r)\alpha^\text{VV}[n](\mathbf r,\mathrm iu)
 \end{equation}
-The effective oscillator frequencies are calculated such as to reproduce the same $C_6$ coefficients for the oscillators, as if calculated directly from $\alpha_i(\mathrm iu)$ via the Casimir--Polder formula,
+The $C_6$ coefficients are calculated directly from $\alpha_i(\mathrm iu)$ via the Casimir--Polder formula,
 \begin{equation}
-  \omega_i^\text{VV}=\frac43\frac{C_{6,i}^\text{VV}}{\alpha_i^\text{VV}{(0)}^2},\quad
   C_{6,i}^\text{VV}=\frac3\pi\int_0^\infty\mathrm du\,\alpha_i^\text{VV}{(\mathrm iu)}^2
 \end{equation}
 Unlike in approaches that use Hirshfeld fragments to define atomic volumes, the particular choice of the atomic partitioning in MBD@VV is mostly inconsequential, because it only influences local redistribution of the polarizability between atoms---not total polarizability, nor polarizability distribution over larger length scales.
+Our approach is also different from that of \citet{SilvestrelliPRL08}, in which the electron density is coarse-grained first and a polarizability functional is evaluated over those fragment densities.
+Such an approach does not conserve the total polarizability.
 
-Already this plain combination of the MBD model and VV polarizability functional gives a substantial improvement in description of ionic systems over MBD@rsSCS, thanks to the versatility of the VV functional.
-But when combined with semilocal density-functional theory (DFT), it still suffers from double-counting of electron correlation in metallic systems (slowly-varying electron density regions), and lacks in accuracy for organic compounds with respect to state-of-the-art vdW models.
-To solve these two issues, we borrow two techniques from the VV10 nonlocal functional and the TS model.
-First, we normalize MBD@VV such that it gives zero vdW energy for jellium by subtracting the portion of the polarizability that comes from metallic electron density regions.
-Second, we normalize the atomic VV polarizabilities and $C_6$ coefficients to reproduce the respective exact quantities for free atoms.
+Already this initial combination of the MBD model and VV polarizability functional gives a substantial improvement in description of ionic systems over MBD@rsSCS, thanks to the versatility of the VV functional.
+However, it suffers from two theoretical shortcomings.
+First, the polarizability functional is in no way guaranteed to be exact for free atoms across the periodic table, which is a basic requirement for a highly accurate and general model.
+Second, when combined with semilocal density-functional theory (DFT), it suffers from double-counting of electron correlation in regions of slowly-varying electron density.
+To solve these two issues, we borrow two techniques from the TS model and from the VV10 nonlocal functional.
+First, we normalize the atomic VV polarizabilities and $C_6$ coefficients to reproduce the respective exact quantities for free atoms.
+Second, we normalize MBD@VV such that it gives zero vdW energy for jellium by subtracting the portion of the polarizability that comes from metallic electron density regions.
 
-Most exchange--correlation (XC) functionals are exact for jellium by construction, even though the portion of electron correlation coming from plasmons is long-ranged and should not in principle be accounted for by semilocal XC functionals.
+The VV polarizability functional is only approximate, which is manifest already for free-atom polarizabilities and $C_6$ coefficients, where accurate reference values are known (Figure~\ref{fig:vv-periodic-table}).
+Whereas the VV functional reproduces atoms of nonmetallic elements quite accurately (especially the important carbon atom with error in the $C_6$ coefficient less than 2\%), the polarizabilities and $C_6$ coefficients of atoms of metallic elements are substantially underestimated.
+To mitigate this error, we normalize the VV atomic quantities with the ratio of the free-atom polarizabilities and $C_6$ coefficients as calculated by the VV functional and as obtained from accurate reference calculations,
+\begin{equation}
+  \alpha_{0,i}^\text{rVV$'$}=\alpha_{0,i}^\mathrm{VV'}\frac{\alpha_{0,i}^\text{ref,free}}{\alpha_{0,i}^\text{VV$'$,free}},\quad
+  C_{6,i}^\text{rVV$'$}=C_{6,i}^\mathrm{VV'}\frac{C_{6,i}^\text{ref,free}}{C_{6,i}^\text{VV$'$,free}}
+\end{equation}
+This correction assumes that any error in the VV functional is at least partially transferable from free atoms to atoms in compounds.
+Alternatively, the normalization can be seen as a modification of the TS approach~\citep{TkatchenkoPRL09}, in which the ratios of Hirshfeld volumes are replaced with ratios of VV polarizabilities and $C_6$ coefficients.
+
+% TODO
+% As part of the normalization, we reoptimize the $C$ parameter in the VV functional on the same set of $C_6$ coefficients used in the TS method.
+% The original formulation of the VV polarizability functional used $C=0.0089$~\citep{VydrovPRL09}, but was later reparametrized by the authors themselves to $C=0.0093$~\citep{VydrovJCP10a}.
+% In both cases, the reference sets of $C_6$ coefficients used for the parametrization contained also atoms of metallic elements, which are severely underestimated by the VV functional (Figure~\ref{fig:vv-periodic-table}), and this pushed the parameter $C$ to lower values.
+% The TS reference set contains mostly organic compounds, and this results in the higher value of $C=0.0101$.
+% This makes the metallic elements even more underestimated by the VV functional, but that is not an issue in our approach because of to the normalization to free atoms.
+
+Many exchange--correlation (XC) functionals are exact for jellium by construction, even though the portion of electron correlation coming from plasmons is long-ranged and should not in principle be accounted for by semilocal XC functionals.
 As a result of this construction, most XC functionals describe accurately the electron correlation \emph{within} slowly-varying density regions, such as those found in metals, and no addition of vdW forces is needed in those cases.
 This is unlike in all other cases, where semilocal functionals neglect long-range vdW interactions.
 Furthermore, the interactions \emph{between} such regions and other regions of the electron density are effectively screened by the conducting electrons.
@@ -57,7 +75,9 @@ To avoid this double-counting of the long-range electron correlation, the VV10 n
 \begin{equation}
   E_\text{vdW}^\text{VV10} = E^\text{VV10}[n]-\big(E^\text{VV10}|_{\boldsymbol\nabla n\rightarrow0}\big)[n]
 \end{equation}
-Such an approach cannot be used directly in a many-body model such as MBD, so we devised an alternative construction.
+Such an approach cannot be used directly in a many-body model such as MBD, because unlike in a pairwise model the many-body vdW energy is not linear in the polarizability.
+This would result in all the nonlinear contributions, which can be dominating in a highly polarizable system such as a metal, not being subtracted by the zero-gradient limit.
+Instead, we devised an alternative construction.
 
 \begin{figure}[t!]
 \begin{tikzpicture}
@@ -132,23 +152,17 @@ The reference values are the same as used in the TS method.
 }\label{fig:vv-periodic-table}
 \end{figure}
 
-The VV polarizability functional is only approximate, which is manifest already for free-atom polarizabilities and $C_6$ coefficients, where accurate reference values are known (Figure~\ref{fig:vv-periodic-table}).
-Whereas the VV functional reproduces atoms of nonmetallic elements quite accurately (especially the important carbon atom with error in the $C_6$ coefficient less than 2\%), the polarizabilities and $C_6$ coefficients of atoms of metallic elements are substantially underestimated.
-To mitigate this error, we normalize the VV atomic quantities with the ratio of the free-atom polarizabilities and $C_6$ coefficients as calculated by the VV functional and as obtained from accurate reference calculations,
-\begin{equation}
-  \alpha_{0,i}^\text{rVV$'$}=\alpha_{0,i}^\mathrm{VV'}\frac{\alpha_{0,i}^\text{ref,free}}{\alpha_{0,i}^\text{VV$'$,free}},\quad
-  C_{6,i}^\text{rVV$'$}=C_{6,i}^\mathrm{VV'}\frac{C_{6,i}^\text{ref,free}}{C_{6,i}^\text{VV$'$,free}}
-\end{equation}
-This correction assumes that any error in the VV functional is at least partially transferable from free atoms to atoms in compounds.
-Alternatively, the normalization can be seen as a modification of the TS approach~\citep{TkatchenkoPRL09}, in which the ratios of Hirshfeld volumes are replaced with ratios of VV polarizabilities and $C_6$ coefficients.
+The static polarizabilities and $C_6$ coefficients calculated as described above are then put into the MBD model to obtain the vdW energy.
+The MBD Hamiltonian describes a system of charges in harmonic potentials---Drude oscillators---characterized by their static polarizabilities $\alpha_{0,i}$ and resonance frequencies $\omega_i=4C_{6,i}/3\alpha_{0,i}^2$, and interacting via a long-range dipole potential $\mathbf T^\mathrm{lr}(\mathbf R)\equiv f(R)\mathbf T(\mathbf R)$,
+\begin{multline}
+  H^\text{MBD}(\{\alpha_{0,i},\omega_i\})=\sum_i-\frac12\nabla_{\xi_i}^2+\sum_i\frac12\omega_i^2\xi_i^2 \\
+  +\frac12\sum_{ij}\omega_i\omega_j\sqrt{\alpha_{0,i}\alpha_{0,j}}\boldsymbol{\xi}_i\cdot\mathbf T^\mathrm{lr}_{ij}\boldsymbol{\xi}_j
+\end{multline}
+where $\boldsymbol\xi_i\equiv\sqrt{m_i}\mathbf x_i$ are mass-weighted displacements of the charges.
+To calculate the vdW energy, each oscillator is parametrized such that it models the polarization response of a single atom in a molecule or material.
+The interaction energy of this model system---the vdW energy---is then readily obtained by direct diagonalization of the Hamiltonian.
 
-As part of the normalization, we reoptimize the $C$ parameter in the VV functional on the same set of $C_6$ coefficients used in the TS method.
-The original formulation of the VV polarizability functional used $C=0.0089$~\citep{VydrovPRL09}, but was later reparametrized by the authors themselves to $C=0.0093$~\citep{VydrovJCP10a}.
-In both cases, the reference sets of $C_6$ coefficients used for the parametrization contained also atoms of metallic elements, which are severely underestimated by the VV functional (Figure~\ref{fig:vv-periodic-table}), and this pushed the parameter $C$ to lower values.
-The TS reference set contains mostly organic compounds, and this results in the higher value of $C=0.0101$.
-This makes the metallic elements even more underestimated by the VV functional, but that is not an issue in our approach because of to the normalization to free atoms.
-
-Finally, MBD@VV uses the same form of $\mathbf T^\text{lr}$ as the MBD@rsSCS variant~\citep{AmbrosettiJCP14}, but with a different definition of the vdW radii.
+MBD@VV uses the same form of the long-range coupling $\mathbf T^\text{lr}$ as the MBD@rsSCS variant~\citep{AmbrosettiJCP14}, but with a different definition of the vdW radii.
 Rather than using tabulated free-atom vdW radii, we use the simple formula for a vdW radius of \citet{FedorovPRL18}, and rather than with ratios of Hirshfeld volumes, these free-atom vdW radii are scaled with the ratios of VV polarizability of an atom in a compound and that of a free atom,\begin{equation}
   R_i^\text{vdW}=\tfrac52{(\alpha_{0,i}^\text{ref,free})}^\frac17{\left(\frac{\alpha_i^\mathrm{VV'}}{\alpha_i^\text{VV$'$,free}}\right)}^\frac13
 \end{equation}
