@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from mbdvv.physics import reduced_grad, vv_pol, alpha_kin
+from mbdvv.app import kcal, ev
 import mbdvv.report as rp
 
 import matplotlib as mpl
@@ -64,7 +65,7 @@ def plot_species(ax, df, num, den, label=None):
 
 
 fig, ax = plt.subplots(figsize=(3.5, 1.1))
-ax.axhline(1, color='black')
+ax.axhline(1, color='black', linewidth=0.5, zorder=-1)
 plot_species(ax, free_atoms_vv.loc(0)[0.0093, False], 'C6', 'C6(TS)', 'VV')
 ax.set_xlim(1, 54)
 ax.set_xticks([2, 10, 18, 30, 36, 48, 54])
@@ -84,10 +85,12 @@ solid_groups = {
 }
 
 SOLIDS_VV_H5 = Path('data/solids-vv.h5')
+VDW_ENERGIES_SOLIDS_H5 = Path('data/vdw-energies-solids.h5')
+if not SOLIDS_VV_H5.exists() or not VDW_ENERGIES_SOLIDS_H5.exists():
+    aims_data_solids, solids_pts, solids_ds, alpha_vvs_solids = rp.setup_solids()
 if SOLIDS_VV_H5.exists():
     solids_vv = pd.read_hdf(SOLIDS_VV_H5, 'table')
 else:
-    _, solids_pts, solids_ds, _ = rp.setup_solids()
     solids_vv = (
         solids_pts
         .loc[lambda x: x.rho > 0]
@@ -102,6 +105,24 @@ else:
         ))
     )
     solids_vv.to_hdf(SOLIDS_VV_H5, 'table')
+if VDW_ENERGIES_SOLIDS_H5.exists():
+    vdw_energies_solids = pd.read_hdf(VDW_ENERGIES_SOLIDS_H5, 'table')
+else:
+    vdw_energies_solids = rp.specs_to_binding_enes(
+        [
+            {},
+            {'rpa': True, 'scs': True, 'beta': 0.83, '_label': 'MBD@rsSCS'},
+            {
+                'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff',
+                'Rvdw17_base': True, 'vv_norm': 'aims', '_label': 'MBD@VV'
+            },
+        ],
+        solids_ds,
+        aims_data_solids.loc(0)[:, 1.],
+        alpha_vvs_solids,
+        unit=ev,
+    )
+    vdw_energies_solids.to_hdf(VDW_ENERGIES_SOLIDS_H5, 'table')
 
 fig, axes = plt.subplots(
     2, 3, figsize=(4, 3), gridspec_kw=dict(hspace=0.3, wspace=0.1)
@@ -131,7 +152,7 @@ axes[-1, -1].set_visible(False)
 
 savefig(fig, 'solids-hists')
 
-aims_data_s66, _, alpha_vvs_s66 = rp.setup_s66()
+aims_data_s66, s66_ds, alpha_vvs_s66 = rp.setup_s66()
 aims_data_x23, _, _ = rp.setup_x23()
 
 fig, axes = plt.subplots(
@@ -222,3 +243,61 @@ axes[0].legend(
 )
 
 savefig(fig, 'pol-shifts')
+
+VDW_ENERGIES_S66_H5 = Path('data/vdw-energies-s66.h5')
+if VDW_ENERGIES_S66_H5.exists():
+    vdw_energies_s66 = pd.read_hdf(VDW_ENERGIES_S66_H5, 'table')
+else:
+    vdw_energies_s66 = rp.specs_to_binding_enes([
+        {},
+        {'scs': True, 'beta': 0.83, '_label': 'MBD@rsSCS'},
+        {
+            'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff',
+            'Rvdw17_base': True, 'vv_norm': 'nonsph', '_label': 'MBD@VV'
+        },
+    ], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
+    vdw_energies_s66.to_hdf(VDW_ENERGIES_S66_H5, 'table')
+
+with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
+    g = sns.catplot(
+        data=vdw_energies_s66.reset_index(),
+        kind='box',
+        x='method',
+        y='reldelta',
+        hue='scale',
+        order='PBE PBE+MBD@rsSCS PBE+MBD@VV PBE+VV'.split(),
+        aspect=1.6,
+        height=1.8,
+        margin_titles=True,
+        fliersize=1,
+    )
+g.ax.axhline(color='black', linewidth=0.5, zorder=-1)
+g.set(ylim=(-.5, .5))
+g.set_xticklabels(rotation=30, ha='right')
+g.set_xlabels('')
+g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
+g.set(yticks=[-.3, -.1, 0, .1, .3])
+g.set_yticklabels(['$-30\%$', '$-10\%$', '0%', '10%', '30%'])
+g._legend.set_title('equilibrium\ndistance scale')
+savefig(g, 's66-errors')
+
+g = sns.catplot(
+    data=vdw_energies_solids.reset_index(),
+    kind='box',
+    x='method',
+    y='reldelta',
+    hue='group',
+    order='PBE PBE+MBD@rsSCS PBE+MBD@VV PBE+VV'.split(),
+    aspect=2,
+    height=1.5,
+    margin_titles=True,
+    fliersize=1,
+)
+g.ax.axhline(color='black', linewidth=0.5, zorder=-1)
+g.set(ylim=(-.35, .35))
+g.set_xticklabels(rotation=30, ha='right')
+g.set_xlabels('')
+g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
+g.set(yticks=[-.3, -.1, 0, .1, .3])
+g.set_yticklabels(['$-30\%$', '$-10\%$', '0%', '10%', '30%'])
+savefig(g, 'solids-errors')

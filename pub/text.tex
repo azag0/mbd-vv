@@ -1,4 +1,4 @@
-Van der Waals (vdW) interactions originate from nonlocal correlations in the quantum motion of electrons, and give rise to a wide spectrum of physical phenomena, ranging from attraction between two atoms~\citep{LondonZP30} to the macroscopic Casimir effect~\citep{JaffePRD05}.
+The Van der Waals (vdW) force originates from nonlocal correlations in the quantum motion of electrons, and give rise to a wide spectrum of physical phenomena, ranging from attraction between two atoms~\citep{LondonZP30} to the macroscopic Casimir effect~\citep{JaffePRD05}.
 They dictate thermodynamic properties of many molecular solids, layered and nanostructured materials, and biological compounds, and govern processes such as molecular adsorption and self-assembly, including most biological processes.
 As a result, vdW interactions have been, and are increasingly so, one of the prime targets of material modeling, which has led to a plethora of approaches that either treat vdW forces implicitly or model them explicitly~\citep{KlimesJCP12,GrimmeCR16,HermannCR17}.
 These include quantum Monte--Carlo~\citep{AmbrosettiJPCL14} (QMC), coupled clusters~\citep{YangS14}, random-phase approximation~\citep{LuPRL09}, nonlocal density functionals~\citep{DionPRL04,VydrovPRL09}, and coarse-grained approaches, which range from pairwise~\citep{GrimmeJCC04,BeckeJCP07,TkatchenkoPRL09} to many-body models~\citep{TkatchenkoPRL12,SilvestrelliJCP13}.
@@ -48,6 +48,14 @@ To solve these two issues, we borrow two techniques from the TS model and from t
 First, we normalize the atomic VV polarizabilities and $C_6$ coefficients to reproduce the respective exact quantities for free atoms.
 Second, we normalize MBD@VV such that it gives zero vdW energy for jellium by subtracting the portion of the polarizability that comes from metallic electron density regions.
 
+\begin{figure}[t!]
+\centering
+\includegraphics{../media/vv-periodic-table.pdf}
+\caption{\textbf{Relative errors in VV polarizabilities of free atoms for first 54 elements.}
+The reference values are the same as used in the TS method.
+}\label{fig:vv-periodic-table}
+\end{figure}
+
 The VV polarizability functional is only approximate, which is manifest already for free-atom polarizabilities and $C_6$ coefficients, where accurate reference values are known (Figure~\ref{fig:vv-periodic-table}).
 Whereas the VV functional reproduces atoms of nonmetallic elements quite accurately (especially the important carbon atom with error in the $C_6$ coefficient less than 2\%), the polarizabilities and $C_6$ coefficients of atoms of metallic elements are substantially underestimated.
 To mitigate this error, we normalize the VV atomic quantities with the ratio of the free-atom polarizabilities and $C_6$ coefficients as calculated by the VV functional and as obtained from accurate reference calculations,
@@ -79,6 +87,18 @@ Such an approach cannot be used directly in a many-body model such as MBD, becau
 This would result in all the nonlinear contributions, which can be dominating in a highly polarizable system such as a metal, not being subtracted by the zero-gradient limit.
 Instead, we devised an alternative construction.
 
+Rather than evaluating the interaction of the metallic-density regions and than subtracting it, as in VV10, we do not evaluate it in the first place by smoothly cutting of the contribution of these regions to the polarizability.
+These regions can be distinguished using the combination of two local dimensionless electron-density descriptors: the reduced gradient $s$ and the iso-orbital indicator $\chi$~\citep{BeckeJCP90,KummelMP03,SunPRL13},
+\begin{equation}
+  s[n]=\frac{|\boldsymbol\nabla n|}{2{(3\pi^2)}^\frac13n^\frac43},\qquad
+  \chi[n]=\frac{\tau^\text{KS}[n]-\tau^\text{W}[n]}{\tau^\text{unif}[n]}
+\end{equation}
+where $\tau[n]=\sum_i|\boldsymbol\nabla\phi_i|^2/2$ is the positive kinetic energy density of occupied orbitals $\phi_i$, which for single-orbital densities reduces to the von Weizsäcker kinetic energy density, $\tau^\text W[n]=|\boldsymbol\nabla n|^2/8n$, and for jellium to $\tau^\mathrm{unif}[n]=3(3\pi^2)^{2/3}n^{5/3}/10$.  % chktex 3
+The density gradient alone is not sufficient to characterize metallic density.
+In particular, both $s\sim0$ and $\chi\sim1$ must be true for density to be metallic, whereas $s\sim0$ and $\chi\sim0$ corresponds to centers of covalent bonds (dominated by a single bonding orbital) and $s\sim0$ and $\chi\gg1$ signifies overlaps of electron-density tails that occur between noncovalently bound systems.
+Since the normalization of VV10 to jellium uses only the density gradient, it partially omits also contributions from covalent bonds.
+By using the iso-orbital indicator, we can make MBD@VV more precise in this regard.
+
 \begin{figure}[t!]
 \begin{tikzpicture}
 \node[below right] at (0,0) {\bfseries a};
@@ -95,19 +115,7 @@ Each distribution is normalized to 62 (a.\,u.), the VV polarizability of a benze
 }\label{fig:pol-hists}
 \end{figure}
 
-Rather than evaluating the interaction of the metallic-density regions and than subtracting it, as in VV10, we do not evaluate it in the first place by smoothly cutting of the contribution of these regions to the polarizability.
-These regions can be distinguished using the combination of two local dimensionless electron-density descriptors: the reduced gradient $s$ and the iso-orbital indicator $\chi$~\citep{BeckeJCP90,KummelMP03,SunPRL13},
-\begin{equation}
-  s[n]=\frac{|\boldsymbol\nabla n|}{2{(3\pi^2)}^\frac13n^\frac43},\qquad
-  \chi[n]=\frac{\tau^\text{KS}[n]-\tau^\text{W}[n]}{\tau^\text{unif}[n]}
-\end{equation}
-where $\tau[n]=\sum_i|\boldsymbol\nabla\phi_i|^2/2$ is the positive kinetic energy density of occupied orbitals $\phi_i$, which for single-orbital densities reduces to the von Weizsäcker kinetic energy density, $\tau^\text W[n]=|\boldsymbol\nabla n|^2/8n$, and for jellium to $\tau^\mathrm{unif}[n]=3(3\pi^2)^{2/3}n^{5/3}/10$.  % chktex 3
-The density gradient alone is not sufficient to characterize metallic density.
-In particular, both $s\sim0$ and $\chi\sim1$ must be true for density to be metallic, whereas $s\sim0$ and $\chi\sim0$ corresponds to centers of covalent bonds (dominated by a single bonding orbital) and $s\sim0$ and $\chi\gg1$ signifies overlaps of electron-density tails that occur between noncovalently bound systems.
-Since the normalization of VV10 to jellium uses only the density gradient, it partially omits also contributions from covalent bonds.
-By using the iso-orbital indicator, we can make MBD@VV more precise in this regard.
-
-Figure 3 presents polarizability distributions of $s$ and $\chi$ in benzene compounds and in a set of simple solids, and shows that they are very sensitive to the nature of the bonding in a molecule or material.
+Figure~\ref{fig:pol-hists}a presents polarizability distributions of $s$ and $\chi$ in benzene compounds and in a set of simple solids, and shows that they are very sensitive to the nature of the bonding in a molecule or material.
 In an organic molecule such as benzene (Figure~\ref{fig:pol-hists}a), the vast majority of the polarizability
 comes from electron density with $s>0.1$ while the small remainder comes
 from low-gradient regions with $\chi<1$.
@@ -144,14 +152,6 @@ This effect is an artifact of the VV functional that causes increasingly large v
 To eliminate this issue, we extend the region in which the cutoff function $g$ is zero to all low-gradient regions with $\chi>1$.
 This does not affect the polarizabilities of organic monomers, but ensures that the increase in polarizability from monomers to dimers is less than 1\% on average (Figure~\ref{fig:pol-shifts}).
 
-\begin{figure}[t!]
-\centering
-\includegraphics{../media/vv-periodic-table.pdf}
-\caption{\textbf{Relative errors in VV polarizabilities of free atoms for first 54 elements.}
-The reference values are the same as used in the TS method.
-}\label{fig:vv-periodic-table}
-\end{figure}
-
 The static polarizabilities and $C_6$ coefficients calculated as described above are then put into the MBD model to obtain the vdW energy.
 The MBD Hamiltonian describes a system of charges in harmonic potentials---Drude oscillators---characterized by their static polarizabilities $\alpha_{0,i}$ and resonance frequencies $\omega_i=4C_{6,i}/3\alpha_{0,i}^2$, and interacting via a long-range dipole potential $\mathbf T^\mathrm{lr}(\mathbf R)\equiv f(R)\mathbf T(\mathbf R)$,
 \begin{multline}
@@ -162,9 +162,73 @@ where $\boldsymbol\xi_i\equiv\sqrt{m_i}\mathbf x_i$ are mass-weighted displaceme
 To calculate the vdW energy, each oscillator is parametrized such that it models the polarization response of a single atom in a molecule or material.
 The interaction energy of this model system---the vdW energy---is then readily obtained by direct diagonalization of the Hamiltonian.
 
-MBD@VV uses the same form of the long-range coupling $\mathbf T^\text{lr}$ as the MBD@rsSCS variant~\citep{AmbrosettiJCP14}, but with a different definition of the vdW radii.
+In MBD@VV, we use the same form of the long-range coupling $\mathbf T^\text{lr}$ as the MBD@rsSCS variant~\citep{AmbrosettiJCP14}, but with a different definition of the vdW radii.
 Rather than using tabulated free-atom vdW radii, we use the simple formula for a vdW radius of \citet{FedorovPRL18}, and rather than with ratios of Hirshfeld volumes, these free-atom vdW radii are scaled with the ratios of VV polarizability of an atom in a compound and that of a free atom,\begin{equation}
   R_i^\text{vdW}=\tfrac52{(\alpha_{0,i}^\text{ref,free})}^\frac17{\left(\frac{\alpha_i^\mathrm{VV'}}{\alpha_i^\text{VV$'$,free}}\right)}^\frac13
 \end{equation}
 
-Next, we briefly describe several benchmark tests of the MBD@VV model, with detailed results and additional tests reported in the Supplemental Material.
+\begin{figure}[t!]
+\centering
+\includegraphics{../media/s66-errors.pdf}
+\caption{\textbf{Distributions of relative errors in binding energies on the S66$\times$8 set.}
+}\label{fig:s66-errors}
+\end{figure}
+
+\begin{figure}[t!]
+\centering
+\includegraphics{../media/solids-errors.pdf}
+\caption{\textbf{Distributions of relative errors in binding energies on the set of 63 solids.}
+}\label{fig:solids-errors}
+\end{figure}
+
+\begin{figure}[t!]
+\centering
+\includegraphics{../media/silver-benzene.pdf}
+\caption{\textbf{Binding energy of a single benzene molecule on a silver surface.}
+}\label{fig:silver-benzene}
+\end{figure}
+
+\begin{table*}[t!]
+\centering
+\caption{\textbf{Performance on vdW benchmark data sets.}}\label{tab:performance}
+\begin{tabular}{l*{6}{S[
+  table-format=2.1,
+  table-align-text-post=false,
+  table-space-text-post=\%,
+]}}
+\toprule
+XC & \multicolumn3c{MARE$^\text{a}$} & \multicolumn3c{MRE$^\text{b}$} \\
+& {S66} & {X23} & {S12L} & {S66} & {X23} & {S12L} \\
+\midrule
+PBE & 57\% & 60\% & 82\% & 57\% & 60\% & 82\% \\
+PBE+MBD@rsSCS & 8.4\% & 6.4\% & 5.3\% & -3.1\% & -3.4\% & -1.4\% \\
+PBE+MBD@VV & 8.8\% & 7.0\% & 10\% & -0.4\% & 4.9\% & 8.5\% \\
+PBE+VV & 9.9\% & 15\% & 15\% & -6.1\% & -15\%  & -15\% \\
+\midrule
+PBE0 &&&&&& \\
+PBE0+MBD@rsSCS & 7.6\% & 5.4\% & 6.5\% & -1.1\% & -1.7\% & -4.4\% \\
+PBE0+MBD@VV &&&&&& \\
+PBE0+VV & 8.3\% & 15\% & 20\% & -5.3\% & -15\%  & -20\% \\
+\bottomrule
+\end{tabular}
+
+\small
+$^\text{a}$Mean absolute relative error.
+$^\text{b}$Mean relative error.
+\end{table*}
+
+Next, we briefly describe several benchmark tests of the MBD@VV model, with details about the calculations, more detailed results, and additional tests reported in the Supplemental Material.
+The performance on a set of small organic dimers (S66) is nearly identical to that of MBD@rsSCS (Figure~\ref{fig:s66-errors}), which is already excellent for a DFT+vdW approach.
+In contrast, the errors in lattice energies of 63 simple solids are reduced drastically when MBD@rsSCS is replaced by MBD@VV (Figure~\ref{fig:solids-errors}).
+This improvement comes mainly from the errors on metals and ionic solids, which PBE+MBD@rsSCS overbinds by tens of percent, whereas plain PBE performs reasonably well, and MBD@VV even slightly improves it.
+PBE+MBD@VV still somewhat overbinds the metals compared to PBE, but this can be expected, because MBD@VV adds the nonlocal correlation between the bound nonconducting electrons of the metallic ions, which is missing in the PBE description, yet PBE does not underbind the metals.
+The same holds for transition-metal carbides and nitrides.
+Ionic solids are underbound by 4\% with PBE, which is reduced nearly to zero when the missing nonlocal correlation is added by MBD@VV, whereas MBD@rsSCS overbinds some of the ionic solids substantially.
+The performance of MBD@VV on semiconductors is similar to that of MBD@rsSCS\@.
+
+The overall performance on the S66 set, a set of organic molecular crystals (X23), and a set of supramolecular complexes (S12L) is summarized in Table~\ref{tab:performance}.
+On X23, the performance of MBD@VV is similar to that of MBD@rsSCS, but rather than somewhat overbinding the crystals as PBE+MBD@rsSCS does, PBE+MBD@VV underbinds them by a similar magnitude.
+On S12L, the accuracy of PBE+MBD@VV is reduced compared to PBE+MBD@rsSCS, going from 5\% to 10\%.
+This results from underbinding of the $\mathrm\pi$--$\mathrm\pi$ complexes.
+
+Benzene on silver\ldots

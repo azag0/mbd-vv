@@ -115,6 +115,11 @@ aims_data_s66, s66_ds, alpha_vvs_s66 = rp.setup_s66()
 aims_data_solids, solids_pts, solids_ds, alpha_vvs_solids = rp.setup_solids()
 
 # ::>
+
+# ::hide
+aims_data_x23, x23_ds, alpha_vvs_x23 = rp.setup_x23()
+
+# ::>
 # **Table 1: Performance on the S66x8 data set.** The mean relative errors (MRE)
 # and mean absolute relative errors (MARE) of three methods are shown: the plain
 # PBE functional, the standard PBE+MBD@rsSCS method (with optimal damping
@@ -1343,6 +1348,7 @@ with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
         height=2.5,
         margin_titles=True
     )
+g.ax.axhline(color='black', linewidth=0.5, zorder=-1)
 g.set(ylim=(-.5, .5))
 g.set_xticklabels(rotation=30, ha='right')
 g.set_xlabels('')
@@ -1380,6 +1386,23 @@ energies_solids_vdw = rp.specs_to_binding_enes(
 energies_solids_vdw.groupby('group method'.split(), sort=False) \
     .apply(rp.dataset_stats).unstack('group').swaplevel(0, 1, 1) \
     .loc(1)[:, ['N', 'MRE']].sort_index(1).round(3)
+
+
+# ::>
+
+g = sns.catplot(
+    data=energies_solids_vdw.reset_index(),
+    kind='box',
+    x='method',
+    y='reldelta',
+    hue='group',
+    aspect=2,
+    height=2.5,
+    margin_titles=True
+)
+g.ax.axhline(color='black', linewidth=0.5, zorder=-1)
+g.set(ylim=(-.35, .35))
+g.set_xticklabels(rotation=30, ha='right')
 
 # ::>
 # Finally, we show the vdW radii of atoms in metals obtained by various
@@ -1445,9 +1468,6 @@ vdw_params_solids_vdw = pd.concat(
 # the MBD@VV variants somewhat underbind, but the overall performance is the
 # same.
 
-# ::hide
-aims_data_x23, x23_ds, alpha_vvs_x23 = rp.setup_x23()
-
 # ::>
 
 # ::hide
@@ -1455,8 +1475,8 @@ energies_x23_all = rp.specs_to_binding_enes(
     [
         {},
         {'scs': True, 'beta': 0.83, 'kdensity': 0.8},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph', 'kdensity': 0.8},
+        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph', 'kdensity': 0.8},
     ], x23_ds, aims_data_x23, alpha_vvs_x23, free_atoms_vv, unit=kcal)
 
 # ::>

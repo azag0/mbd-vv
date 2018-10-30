@@ -34,12 +34,7 @@ jellium
 XDM
 rsSCS
 Drude
-#iagonalizatizn
-diagonalization
-#r
 label
-#esonance
-#r
 semilocal
 adsorbates
 plasmons
@@ -47,7 +42,6 @@ XC
 Kohn
 von Weizsäcker
 noncovalently
-#.u.
 S66
 a.\,u.
 reoptimize
@@ -56,3 +50,9 @@ nanostructured
 polarizable
 QMC
 supramolecular
+PBE0
+X23
+S12L
+MRE
+underbind
+underbound
