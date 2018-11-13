@@ -5,7 +5,7 @@ description = ""
 authors = ["Jan Hermann <sci@janhermann.cz>"]
 
 [tool.poetry.dependencies]
-python = "3.6"
+python = "^3.6"
 caf = { path = "_caf", develop = true }
 vdwsets = { path = "_vdwsets", develop = true }
 pymbd = { path = "_pymbd", develop = true }
