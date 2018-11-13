@@ -1,3 +1,7 @@
+% vim: set foldmethod=marker:
+
+% Introduction {{{1
+
 The Van der Waals (vdW) force originates from nonlocal correlations in the quantum motion of electrons, and give rise to a wide spectrum of physical phenomena, ranging from attraction between two atoms~\citep{LondonZP30} to the macroscopic Casimir effect~\citep{JaffePRD05}.
 They dictate thermodynamic properties of many molecular solids, layered and nanostructured materials, and biological compounds, and govern processes such as molecular adsorption and self-assembly, including most biological processes.
 As a result, vdW interactions have been, and are increasingly so, one of the prime targets of material modeling, which has led to a plethora of approaches that either treat vdW forces implicitly or model them explicitly~\citep{KlimesJCP12,GrimmeCR16,HermannCR17}.
@@ -15,6 +19,10 @@ In our consideration, a similar level of empiricism is involved in the construct
 On one hand we remove the need for tabulated reference vdW radii and for the short-range screening, on the other we introduce new mechanisms that contain some quantitative empirical choices.
 However, these choices are motivated by well-understood goals, and can be justified qualitatively without resorting to empirical arguments.
 We demonstrate on a series of benchmark calculations that our new model enables for the first time consistent treatment of vdW interactions in covalent, ionic, and hybrid metal-organic interfaces by a single method, while achieving the accuracy of the best approaches for each of these material types.
+
+% Model {{{1
+
+% Coarse graining {{{2
 
 The central proposition of the new model, dubbed MBD@VV, is to parameterize the Hamiltonian of the MBD model with the VV polarizability functional.
 In general, each vdW model consists of two main ingredients: a model for the noninteracting polarization response and the model for long-range coupling of this response.
@@ -48,6 +56,8 @@ To solve these two issues, we borrow two techniques from the TS model and from t
 First, we normalize the atomic VV polarizabilities and $C_6$ coefficients to reproduce the respective exact quantities for free atoms.
 Second, we normalize MBD@VV such that it gives zero vdW energy for jellium by subtracting the portion of the polarizability that comes from metallic electron density regions.
 
+% Free-atom normalization {{{2
+
 \begin{figure}[t!]
 \centering
 \includegraphics{../media/vv-periodic-table.pdf}
@@ -72,6 +82,8 @@ Alternatively, the normalization can be seen as a modification of the TS approac
 % In both cases, the reference sets of $C_6$ coefficients used for the parametrization contained also atoms of metallic elements, which are severely underestimated by the VV functional (Figure~\ref{fig:vv-periodic-table}), and this pushed the parameter $C$ to lower values.
 % The TS reference set contains mostly organic compounds, and this results in the higher value of $C=0.0101$.
 % This makes the metallic elements even more underestimated by the VV functional, but that is not an issue in our approach because of to the normalization to free atoms.
+
+% Jellium normalization {{{2
 
 Many exchange--correlation (XC) functionals are exact for jellium by construction, even though the portion of electron correlation coming from plasmons is long-ranged and should not in principle be accounted for by semilocal XC functionals.
 As a result of this construction, most XC functionals describe accurately the electron correlation \emph{within} slowly-varying density regions, such as those found in metals, and no addition of vdW forces is needed in those cases.
@@ -152,6 +164,8 @@ This effect is an artifact of the VV functional that causes increasingly large v
 To eliminate this issue, we extend the region in which the cutoff function $g$ is zero to all low-gradient regions with $\chi>1$.
 This does not affect the polarizabilities of organic monomers, but ensures that the increase in polarizability from monomers to dimers is less than 1\% on average (Figure~\ref{fig:pol-shifts}).
 
+% Many-body dispersion {{{2
+
 The static polarizabilities and $C_6$ coefficients calculated as described above are then put into the MBD model to obtain the vdW energy.
 The MBD Hamiltonian describes a system of charges in harmonic potentials---Drude oscillators---characterized by their static polarizabilities $\alpha_{0,i}$ and resonance frequencies $\omega_i=4C_{6,i}/3\alpha_{0,i}^2$, and interacting via a long-range dipole potential $\mathbf T^\mathrm{lr}(\mathbf R)\equiv f(R)\mathbf T(\mathbf R)$,
 \begin{multline}
@@ -166,6 +180,8 @@ In MBD@VV, we use the same form of the long-range coupling $\mathbf T^\text{lr}$
 Rather than using tabulated free-atom vdW radii, we use the simple formula for a vdW radius of \citet{FedorovPRL18}, and rather than with ratios of Hirshfeld volumes, these free-atom vdW radii are scaled with the ratios of VV polarizability of an atom in a compound and that of a free atom,\begin{equation}
   R_i^\text{vdW}=\tfrac52{(\alpha_{0,i}^\text{ref,free})}^\frac17{\left(\frac{\alpha_i^\mathrm{VV'}}{\alpha_i^\text{VV$'$,free}}\right)}^\frac13
 \end{equation}
+
+% Tests {{{1
 
 \begin{figure}[t!]
 \centering
