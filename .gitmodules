@@ -10,6 +10,3 @@
 [submodule "pyatsol"]
 	path = _pyatsol
 	url = ./_pyatsol
-[submodule "knitj"]
-	path = _knitj
-	url = https://github.com/azag0/knitj.git
