@@ -3,7 +3,6 @@ from jinja2 import Environment
 from pathlib import Path
 import yaml
 import sys
-import os
 
 env = Environment(
     block_start_string='<+',
@@ -16,4 +15,6 @@ env = Environment(
     autoescape=False,
 )
 template = env.from_string(sys.stdin.read())
-print(template.render(**yaml.load(Path(sys.argv[1]).read_text())))
+Path(sys.argv[2]).write_text(
+    template.render(**yaml.load(Path(sys.argv[1]).read_text()))
+)

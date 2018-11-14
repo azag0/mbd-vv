@@ -7,6 +7,8 @@ default: preprint
 
 preprint: $(BLDDIR)/preprint.pdf
 
+tex: preprint.tex preamble.tex si.tex
+
 si: $(BLDDIR)/si.pdf
 
 diff: $(BLDDIR)/diff.pdf
@@ -24,7 +26,7 @@ $(BLDDIR)/preprint.pdf: preamble.tex
 $(BLDDIR)/si.pdf: preamble.tex
 
 %.tex: metadata.yml %.tex.in
-	python3 texgen.py $< <$(word 2,$^) >$@
+	./texgen.py $< $@ <$(word 2,$^)
 
 bib: refs-zotero.bib
 
