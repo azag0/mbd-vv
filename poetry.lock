@@ -300,6 +300,7 @@ watchdog = "^0.9.0"
 reference = "dbc35757a363fba0c2f3dfcba27f730b7f27c420"
 type = "git"
 url = "https://github.com/azag0/knitj.git"
+
 [[package]]
 category = "dev"
 description = "Powerful and Pythonic XML processing library combining libxml2/libxslt with the ElementTree API."
@@ -529,10 +530,9 @@ cffi = "^1"
 numpy = "*"
 
 [package.source]
-reference = ""
-type = "directory"
-url = "_pymbd"
-
+reference = "pub-mbd-vv"
+type = "git"
+url = "https://github.com/azag0/libmbd.git"
 [[package]]
 category = "dev"
 description = "Python parsing module"
@@ -728,7 +728,7 @@ idna = ">=2.0"
 multidict = ">=4.0"
 
 [metadata]
-content-hash = "23c32857eb215e0ca9938874fe56da6928dfb86917c9cef956a91880055f98c1"
+content-hash = "0e9027e2231118a41cdd70dd8cce8af6ddf21369414fa5fa5a4c96a1a202b0a7"
 python-versions = "^3.6"
 
 [metadata.hashes]
