@@ -3,7 +3,7 @@ from collections import OrderedDict
 from pkg_resources import resource_filename
 
 import pymbd
-from pymbd import from_volumes, ang, vdw_params, get_kgrid
+from pymbd import ang, vdw_params, get_kgrid
 import pyatsol
 
 import numpy as np
@@ -369,11 +369,11 @@ def ene_dft_vdw(df):
     return df
 
 
-def process_cluster(df, ds):
+def process_cluster(df, ds, refname='energy'):
     key = get_key_from_df(df)
     cluster = ds.clusters[key]
     cluster_df = ds.df.loc(0)[key]
-    ref = cluster_df.energy
+    ref = cluster_df[refname]
     if ds.name == 'S66' and ref > 0:
         ref = np.nan
     try:
@@ -413,14 +413,14 @@ def dataset_scale_stats(df):
 
 
 def specs_to_binding_enes(specs, ds, aims_data, alpha_vvs=None,
-                          free_atoms_vv=None, *, unit):
+                          free_atoms_vv=None, *, unit, **kwargs):
     energies = evaluate_mbd_specs(
         specs, aims_data, alpha_vvs, free_atoms_vv
     )
     return (
         energies
         .pipe(ene_dft_vdw).pipe(lambda df: df*unit)
-        .groupby('label scale'.split(), group_keys=False).apply(process_cluster, ds)
+        .groupby('label scale'.split(), group_keys=False).apply(process_cluster, ds, **kwargs)
     )
 
 

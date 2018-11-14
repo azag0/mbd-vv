@@ -1507,7 +1507,7 @@ energies_s12l_all = rp.specs_to_binding_enes(
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True},
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
-    ], s12l_ds, aims_data_s12l, alpha_vvs_s12l, free_atoms_vv, unit=kcal)
+    ], s12l_ds, aims_data_s12l, alpha_vvs_s12l, free_atoms_vv, unit=kcal, refname='energy_dmc')
 
 # ::>
 
