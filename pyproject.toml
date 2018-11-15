@@ -15,7 +15,7 @@ tables = "^3.4"
 
 [tool.poetry.dev-dependencies]
 pyatsol = { path = "vendor/pyatsol", develop = true }
-knitj = { git = "https://github.com/azag0/knitj.git", commit = "dbc35757a363fba0c2f3dfcba27f730b7f27c420" }
+knitj = { git = "https://github.com/azag0/knitj.git", tag = "pub-mbd-vv" }
 scipy = "^1.1"
 tqdm = "^4.25"
 matplotlib = "^2.2"

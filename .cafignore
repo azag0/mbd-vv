@@ -5,7 +5,7 @@
 /pub/
 /build/
 /results/
-/_pyatsol/
-/_knitj/
+/vendor/pyatsol/
+/vendor/knitj/
 *.so
 *.so.dSYM
