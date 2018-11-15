@@ -4,4 +4,4 @@
 *.egg-info/
 /data
 /media/*.svgz
-/reports/*.html
+/report/*.html
