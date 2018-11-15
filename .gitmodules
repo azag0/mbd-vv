@@ -1,8 +1,8 @@
 [submodule "caf"]
-	path = _caf
+	path = vendor/caf
 	url = https://github.com/azag0/caf.git
 [submodule "vdwsets"]
-	path = _vdwsets
+	path = vendor/vdwsets
 	url = https://github.com/azag0/vdwsets.git
 [submodule "pyatsol"]
 	path = vendor/pyatsol
