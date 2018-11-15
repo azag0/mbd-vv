@@ -5,5 +5,5 @@
 	path = _vdwsets
 	url = https://github.com/azag0/vdwsets.git
 [submodule "pyatsol"]
-	path = _pyatsol
-	url = ./_pyatsol
+	path = vendor/pyatsol
+	url = https://github.com/azag0/atomic-solver.git

@@ -533,6 +533,7 @@ numpy = "*"
 reference = "pub-mbd-vv"
 type = "git"
 url = "https://github.com/azag0/libmbd.git"
+
 [[package]]
 category = "dev"
 description = "Python parsing module"
@@ -728,7 +729,7 @@ idna = ">=2.0"
 multidict = ">=4.0"
 
 [metadata]
-content-hash = "0e9027e2231118a41cdd70dd8cce8af6ddf21369414fa5fa5a4c96a1a202b0a7"
+content-hash = "ecebff6ecfdd6153a2b8ffa9db4e7e46d72a533cba0d3431b40f93d080b5f045"
 python-versions = "^3.6"
 
 [metadata.hashes]
