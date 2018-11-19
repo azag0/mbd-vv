@@ -216,8 +216,10 @@ vdw_params_s66 = (
     vdw_params_s66
     .rename_axis('quantity', axis=1)['alpha_0 C6'.split()].stack()
     .unstack('i_atom').sum(axis=1).unstack('fragment')
-    .pipe(lambda x: (x['complex']-x['fragment-1']-x['fragment-2']) /
-          (x['fragment-1']+x['fragment-2']))
+    .pipe(
+        lambda x: (x['complex']-x['fragment-1']-x['fragment-2'])
+        / (x['fragment-1']+x['fragment-2'])
+    )
     .unstack()
 )
 
@@ -277,7 +279,7 @@ g.set_xticklabels(rotation=30, ha='right')
 g.set_xlabels('')
 g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
 g.set(yticks=[-.3, -.1, 0, .1, .3])
-g.set_yticklabels(['$-30\%$', '$-10\%$', '0%', '10%', '30%'])
+g.set_yticklabels([r'$-30\%$', r'$-10\%$', '0%', '10%', '30%'])
 g._legend.set_title('equilibrium\ndistance scale')
 savefig(g, 's66-errors')
 
@@ -299,5 +301,5 @@ g.set_xticklabels(rotation=30, ha='right')
 g.set_xlabels('')
 g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
 g.set(yticks=[-.3, -.1, 0, .1, .3])
-g.set_yticklabels(['$-30\%$', '$-10\%$', '0%', '10%', '30%'])
+g.set_yticklabels([r'$-30\%$', r'$-10\%$', '0%', '10%', '30%'])
 savefig(g, 'solids-errors')

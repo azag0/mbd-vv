@@ -343,7 +343,7 @@ def evaluate_mbd_specs(specs, aims_data, alpha_vv=None, free_atoms_vv=None,
                 df_alpha_vv=alpha_vv_i, free_atoms_vv=free_atoms_vv_i,
                 get_vdw_params=get_vdw_params, **spec
             )
-        except MBDException as e:
+        except MBDException:
             result = np.nan
         df.append((*key, fragment, spec_label, result))
     df = pd.DataFrame(df, columns='label scale fragment method ene'.split())
@@ -553,8 +553,8 @@ def setup_C6_set():
     with app.context():
         aims_data = app.get('C6s')
     hirsh = {
-        label: data['volumes'] /
-        data['free_atoms']['volumes'][data['free_atoms']['species']-1]
+        label: data['volumes']
+        / data['free_atoms']['volumes'][data['free_atoms']['species']-1]
         for (label, _, _), data, _ in aims_data.itertuples()
     }
     hirsh = pd.DataFrame(
