@@ -5,6 +5,7 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
+from scipy.interpolate import interp1d
 
 from mbdvv.physics import reduced_grad, vv_pol, alpha_kin
 from mbdvv.app import kcal, ev
@@ -17,6 +18,8 @@ import seaborn as sns
 sns.set(style='ticks', context='paper')
 mpl.rc('font', family='serif', serif='STIXGeneral')
 mpl.rc('mathtext', fontset='stix')
+
+MBDSCAN_DATA = pd.HDFStore('data/mbd-scan-data.h5')
 
 
 def savefig(fig, name, ext='pdf', **kwargs):
@@ -260,6 +263,30 @@ else:
     ], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
     vdw_energies_s66.to_hdf(VDW_ENERGIES_S66_H5, 'table')
 
+vdw_energies_s66 = vdw_energies_s66.append(
+    MBDSCAN_DATA['/scf'].loc(0)['S66x8'].loc(0)[:, :, 'pbe']
+    .merge(
+        MBDSCAN_DATA['/vv10']
+        .loc(0)['S66x8']
+        .loc(0)[:, :, :, ['base', 'vdw']]['ene']
+        .unstack()
+        .pipe(lambda x: x['vdw'] - x['base'])
+        .unstack()
+        .apply(lambda x: interp1d(x.index, x), axis=1)
+        .to_frame('vdw'),
+        on='system dist'.split()
+    )
+    .rename_axis(['label', 'scale'])
+    .assign(vdw=lambda df: df.apply(lambda x: float(x['vdw'](6.8)), axis=1))
+    .assign(method='PBE+VV10')
+    .set_index('method', append=True)
+    .assign(ene=lambda x: x['ene'] + x['vdw'])
+    .assign(
+        delta=lambda x: x['ene'] - x['ref'],
+        reldelta=lambda x: (x['ene'] - x['ref'])/abs(x['ref']),
+    )
+)
+
 with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
     g = sns.catplot(
         data=vdw_energies_s66.reset_index(),
@@ -267,7 +294,7 @@ with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
         x='method',
         y='reldelta',
         hue='scale',
-        order='PBE PBE+MBD@rsSCS PBE+MBD@VV PBE+VV'.split(),
+        order='PBE PBE+MBD@rsSCS PBE+MBD@VV PBE+VV10'.split(),
         aspect=1.6,
         height=1.8,
         margin_titles=True,

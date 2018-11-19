@@ -10,6 +10,7 @@ from fractions import Fraction
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from scipy.interpolate import interp1d
 
 from mbdvv.app import kcal, ev
 
@@ -1344,6 +1345,59 @@ with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
         x='method',
         y='reldelta',
         hue='scale',
+        aspect=2,
+        height=2.5,
+        margin_titles=True
+    )
+g.ax.axhline(color='black', linewidth=0.5, zorder=-1)
+g.set(ylim=(-.5, .5))
+g.set_xticklabels(rotation=30, ha='right')
+g.set_xlabels('')
+g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
+g.set(yticks=[-.3, -.1, 0, .1, .3])
+g.set_yticklabels([r'$-30\%$', r'$-10\%$', '0%', '10%', '30%'])
+g._legend.set_title('equilibrium\ndistance scale')
+
+# ::>
+# Let's compare with results obtained with the VV10 functional.
+
+mbdscan_data = pd.HDFStore('data/mbd-scan-data.h5')
+
+# ::>
+
+# ::hide
+energies_s66_vv10 = (
+    mbdscan_data['/scf'].loc(0)['S66x8'].loc(0)[:, :, 'pbe']
+    .merge(
+        mbdscan_data['/vv10']
+        .loc(0)['S66x8']
+        .loc(0)[:, :, :, ['base', 'vdw']]['ene']
+        .unstack()
+        .pipe(lambda x: x['vdw'] - x['base'])
+        .unstack()
+        .apply(lambda x: interp1d(x.index, x), axis=1)
+        .to_frame('vdw'),
+        on='system dist'.split()
+    )
+    .assign(vdw=lambda df: df.apply(lambda x: float(x['vdw'](6.8)), axis=1))
+    .assign(method='PBE+VV10')
+    .assign(ene=lambda x: x['ene'] + x['vdw'])
+    .assign(
+        delta=lambda x: x['ene'] - x['ref'],
+        reldelta=lambda x: (x['ene'] - x['ref'])/abs(x['ref']),
+    )
+)
+
+# ::>
+
+# ::hide
+with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
+    g = sns.catplot(
+        data=energies_s66_vv10.reset_index(),
+        kind='box',
+        x='method',
+        y='reldelta',
+        hue='dist',
         aspect=2,
         height=2.5,
         margin_titles=True
