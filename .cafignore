@@ -3,9 +3,9 @@
 /patches/
 /media/
 /pub/
+/data/
 /build/
 /results/
-/vendor/pyatsol/
 /vendor/knitj/
 *.so
 *.so.dSYM

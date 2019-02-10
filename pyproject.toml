@@ -12,11 +12,11 @@ pymbd = { git = "https://github.com/azag0/libmbd.git", tag = "pub-mbd-vv" }
 pandas = "^0.23.4"
 numpy = "^1.15"
 tables = "^3.4"
+scipy = "^1.1"
 
 [tool.poetry.dev-dependencies]
 pyatsol = { path = "vendor/pyatsol", develop = true }
 knitj = { git = "https://github.com/azag0/knitj.git", tag = "pub-mbd-vv" }
-scipy = "^1.1"
 tqdm = "^4.25"
 matplotlib = "^2.2"
 mypy = "^0.620.0"
@@ -27,3 +27,4 @@ jinja2 = "^2.10"
 pyyaml = "^3.13"
 seaborn = "^0.9"
 tornado = "<5"
+xarray = "^0.11.3"
