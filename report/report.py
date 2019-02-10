@@ -1645,6 +1645,18 @@ energies_surface_all = tmp()
 # vdW radii are used, which leads to weaker binding.
 
 # ::hide
-energies_surface_all.pipe(rp.ene_dft_vdw)['ene'].unstack('scale') \
-    .pipe(lambda df: df.apply(lambda y: y-df.iloc(1)[-1])).stack().to_frame('ene') \
-    .pipe(lambda df: df*ev).unstack('method')
+fig, ax = plt.subplots(figsize=(4, 3))
+sns.lineplot(
+    data=energies_surface_all.pipe(rp.ene_dft_vdw)['ene'].unstack('scale')
+    .pipe(lambda df: df.apply(lambda y: y-df.iloc(1)[-1])).stack().to_frame('ene')
+    .pipe(lambda df: df*ev).reset_index(),
+    x='scale',
+    y='ene',
+    hue='method',
+    ax=ax,
+)
+ax.axhline(color='black', linewidth=0.5, zorder=-1)
+ax.set_xlim(2.7, 10)
+ax.set_ylim(None, 0.1)
+ax.set_xlabel(r'$\mathrm{Distance}/\mathrm{\AA}$')
+ax.set_ylabel(r'$\mathrm{Energy}/\mathrm{eV}$')

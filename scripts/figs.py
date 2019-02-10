@@ -330,3 +330,49 @@ g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
 g.set(yticks=[-.3, -.1, 0, .1, .3])
 g.set_yticklabels([r'$-30\%$', r'$-10\%$', '0%', '10%', '30%'])
 savefig(g, 'solids-errors')
+
+results_surface = rp.setup_surface()
+
+VDW_ENERGIES_SURFACE_H5 = Path('data/vdw-energies-surface.h5')
+if VDW_ENERGIES_SURFACE_H5.exists():
+    vdw_energies_surface = pd.read_hdf(VDW_ENERGIES_SURFACE_H5, 'table')
+else:
+    vdw_energies_surface = rp.evaluate_mbd_specs(
+        [
+            {},
+            {
+                'vv': 'lg2', 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff',
+                'vv_norm': 'aims', 'k_grid': (2, 2, 1), '_label': 'MBD-NL'
+            },
+            {
+                'scs': True, 'beta': 0.83, 'vdw_ref': 'surf', 'k_grid': (2, 2, 1),
+                '_label': 'MBD@rsSCS[surf]'
+            },
+            {
+                'ts': True, 'param_a': 20, 'beta': 0.96, 'damping': 'fermi',
+                'vdw_ref': 'surf', '_label': 'TS[surf]'
+            },
+        ],
+        pd.DataFrame(results_surface).T.rename_axis('scale')
+        .rename(columns={0: 'data', 1: 'gridfile'})
+        .reset_index().assign(label='surface', fragment='all')
+        .set_index('label scale fragment'.split())
+    )
+    vdw_energies_surface.to_hdf(VDW_ENERGIES_SURFACE_H5, 'table')
+
+fig, ax = plt.subplots(figsize=(4, 3))
+sns.lineplot(
+    data=vdw_energies_surface.pipe(rp.ene_dft_vdw)['ene'].unstack('scale')
+    .pipe(lambda df: df.apply(lambda y: y-df.iloc(1)[-1])).stack().to_frame('ene')
+    .pipe(lambda df: df*ev).reset_index(),
+    x='scale',
+    y='ene',
+    hue='method',
+    ax=ax,
+)
+ax.axhline(color='black', linewidth=0.5, zorder=-1)
+ax.set_xlim(2.7, 10)
+ax.set_ylim(None, 0.1)
+ax.set_xlabel(r'$\mathrm{Distance}/\mathrm{\AA}$')
+ax.set_ylabel(r'$\mathrm{Energy}/\mathrm{eV}$')
+savefig(fig, 'surface')
