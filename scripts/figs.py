@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 
-from mbdvv.physics import reduced_grad, vv_pol, alpha_kin
+from mbdvv.physics import ion_pot, vv_pol, alpha_kin
 from mbdvv.app import kcal, ev
 import mbdvv.report as rp
 
@@ -99,7 +99,7 @@ else:
         .loc[lambda x: x.rho > 0]
         .assign(
             alpha=lambda x: alpha_kin(x.rho, x.rho_grad_norm, x.kin_dens),
-            rgrad=lambda x: reduced_grad(x.rho, x.rho_grad_norm),
+            ion_pot=lambda x: ion_pot(x.rho, x.rho_grad_norm),
             vvpol=lambda x: vv_pol(x.rho, x.rho_grad_norm),
         )
         .groupby('label')
@@ -116,8 +116,8 @@ else:
             {},
             {'rpa': True, 'scs': True, 'beta': 0.83, '_label': 'MBD@rsSCS'},
             {
-                'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff',
-                'Rvdw17_base': True, 'vv_norm': 'aims', '_label': 'MBD@VV'
+                'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.81, 'Rvdw_scale_vv': 'cutoff',
+                'Rvdw17_base': True, 'vv_norm': 'aims', '_label': 'MBD-NL'
             },
         ],
         solids_ds,
@@ -133,7 +133,7 @@ fig, axes = plt.subplots(
 grouped = solids_vv.groupby('group')
 for ax, group in zip(axes.flat, solid_groups.values()):
     df = grouped.get_group(group)
-    im = rp.plot_rgrad_alpha(ax, df, norm=62)[-1]
+    im = rp.plot_ion_alpha(ax, df, norm=62)[-1]
     ax.set_title(group)
     ax.set_xticks([0, 0.3])
     ax.set_yticks([0, 1, 10])
@@ -179,11 +179,11 @@ for ax, label, nmol, row in payload:
         .assign(kin_dens=lambda x: x.kin_dens/2)
         .assign(
             alpha=lambda x: alpha_kin(x.rho, x.rho_grad_norm, x.kin_dens),
-            rgrad=lambda x: reduced_grad(x.rho, x.rho_grad_norm),
+            ion_pot=lambda x: ion_pot(x.rho, x.rho_grad_norm),
             vvpol=lambda x: vv_pol(x.rho, x.rho_grad_norm)/nmol,
         )
     )
-    rp.plot_rgrad_alpha(ax, df)
+    rp.plot_ion_alpha(ax, df)
     ax.set_title(label)
     ax.set_xticks([0, 0.3])
     ax.set_xticklabels([0, 0.3])
@@ -206,7 +206,7 @@ else:
                 {'vv': True, 'C_vv': 0.0101, 'beta': np.nan, '_label': 'VV'},
                 {'vv': 'nm', 'C_vv': 0.0101, 'beta': np.nan, '_label': 'nmVV'},
                 {'vv': 'lg', 'C_vv': 0.0101, 'beta': np.nan, '_label': 'lgVV'},
-                {'vv': 'lg2', 'C_vv': 0.0101, 'beta': np.nan, '_label': 'lg2VV'},
+                {'vv': 'lg2', 'C_vv': 0.0093, 'beta': np.nan, '_label': 'lg2VV'},
             ],
             aims_data_s66,
             alpha_vvs_s66,
@@ -257,8 +257,8 @@ else:
         {},
         {'scs': True, 'beta': 0.83, '_label': 'MBD@rsSCS'},
         {
-            'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff',
-            'Rvdw17_base': True, 'vv_norm': 'nonsph', '_label': 'MBD@VV'
+            'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.81, 'Rvdw_scale_vv': 'cutoff',
+            'Rvdw17_base': True, 'vv_norm': 'nonsph', '_label': 'MBD-NL'
         },
     ], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
     vdw_energies_s66.to_hdf(VDW_ENERGIES_S66_H5, 'table')
@@ -294,7 +294,7 @@ with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
         x='method',
         y='reldelta',
         hue='scale',
-        order='PBE PBE+MBD@rsSCS PBE+MBD@VV PBE+VV10'.split(),
+        order='PBE PBE+MBD@rsSCS PBE+MBD-NL PBE+VV10'.split(),
         aspect=1.6,
         height=1.8,
         margin_titles=True,
@@ -316,7 +316,7 @@ g = sns.catplot(
     x='method',
     y='reldelta',
     hue='group',
-    order='PBE PBE+MBD@rsSCS PBE+MBD@VV PBE+VV'.split(),
+    order='PBE PBE+MBD@rsSCS PBE+MBD-NL'.split(),
     aspect=2,
     height=1.5,
     margin_titles=True,

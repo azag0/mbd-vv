@@ -1,7 +1,7 @@
 import pandas as pd
 
 from .app import dir_python
-from .physics import nm_cutoff, lg_cutoff, lg_cutoff2, reduced_grad, alpha_kin, vv_pol
+from .physics import nm_cutoff, lg_cutoff, lg_cutoff2, ion_pot, alpha_kin, vv_pol
 
 
 @dir_python.function_task
@@ -50,11 +50,11 @@ def calc_vvpol(x, freq, **kwargs):
     grad = x.rho_grad_norm.values
     kin = x.kin_dens.values
     w = x.part_weight.values
-    rgrad = reduced_grad(n, grad)
+    ion = ion_pot(n, grad)
     alpha = alpha_kin(n, grad, kin)
-    cutoff_nm = nm_cutoff(rgrad, alpha)
-    cutoff_lg = lg_cutoff(rgrad, alpha)
-    cutoff_lg2 = lg_cutoff2(rgrad, alpha)
+    cutoff_nm = nm_cutoff(ion, alpha)
+    cutoff_lg = lg_cutoff(ion, alpha)
+    cutoff_lg2 = lg_cutoff2(ion, alpha)
     freq = freq[:, None]
     x = pd.concat({
         'vvpol': pd.DataFrame((vv_pol(n, grad, u=freq, **kwargs)*w).T),

@@ -347,8 +347,8 @@ def evaluate_mbd_specs(specs, aims_data, alpha_vv=None, free_atoms_vv=None,
             result = np.nan
         df.append((*key, fragment, spec_label, result))
     df = pd.DataFrame(df, columns='label scale fragment method ene'.split())
-    methods = df['method'].unique().tolist()
-    df['method'] = df['method'].astype(pd.api.types.CategoricalDtype(categories=methods))
+    # methods = df['method'].unique().tolist()
+    # df['method'] = df['method'].astype(pd.api.types.CategoricalDtype(categories=methods))
     df.set_index('label scale fragment method'.split(), inplace=True)
     return df
 
@@ -364,7 +364,8 @@ def ene_dft_vdw(df):
     is_pbe = df.columns == 'PBE'
     df.loc(1)[~is_pbe] = df.loc(1)[~is_pbe].apply(lambda x: x + df['PBE'], axis=0)
     renamed_methods = ['PBE+' + x if x != 'PBE' else x for x in df.columns]
-    df.columns = df.columns.set_categories(renamed_methods, rename=True)
+    df.columns = pd.Series(renamed_methods, name='method')
+    # df.columns = df.columns.set_categories(renamed_methods, rename=True)
     df = df.stack().to_frame('ene')
     return df
 
@@ -527,13 +528,13 @@ def plot_matrix_df(ax, df, **kwargs):
     return plot
 
 
-def plot_rgrad_alpha(ax, df, norm=None):
+def plot_ion_alpha(ax, df, norm=None):
     weights = df.vvpol*df.part_weight
     if norm is not None:
         weights = weights/np.sum(weights)*norm
     return ax.hist2d(
-        df.rgrad, df.alpha,
-        range=[(-.4/100, .4), (0, 12)],
+        df.ion_pot, df.alpha,
+        range=[(-1/100, 1), (0, 12)],
         bins=100,
         weights=weights,
         norm=mpl.colors.LogNorm(1e-3, 4, clip=True),

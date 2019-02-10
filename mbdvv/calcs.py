@@ -19,6 +19,7 @@ aims_binary_atoms = 'aims-138e95e'
 aims_v3 = 'aims-e7c3eb6'
 aims_v4 = 'aims-661b2f1'
 aims_v5 = 'aims-c9fe4b2'
+aims_master = 'aims-fbf4c4a'
 default_tags = dict(
     xc='pbe',
     spin='none',
@@ -273,8 +274,15 @@ async def get_surface():
     tags = {
         **default_tags,
         **solids_tags,
-        'many_body_dispersion_dev': {'grid_atoms': (1, 54, 31, 28, 27, 4)}
+        'many_body_dispersion_dev': {
+            'grid_atoms': (1, 54, 31, 28, 27, 4),
+            'grid_out': True
+        },
+        'many_body_dispersion_rsscs': {'beta': 0.81},
     }
+    del tags['total_energy_method']
+    del tags['output']
+    del tags['override_illconditioning']
     tags['occupation_type'] = ('gaussian', 0.05)
     tags['charge_mix_param'] = 0.05
     tags['k_grid'] = (8, 8, 1)
@@ -292,12 +300,13 @@ async def get_surface():
     slab.lattice[2] = (0, 0, 40)
     height = slab.xyz[:, 2].max()
     hcp_site = slab.lattice[0][0]*2/9*5
+
     async def task(dist):
         geom = slab + bz.shifted((hcp_site, 0, height+dist))
         root = f'surface/{dist}'
         dft_task = await aims.task(
             geom=geom,
-            aims=aims_v5,
+            aims=aims_master,
             basis='tight',
             tags=tags,
             label=root,
@@ -307,6 +316,7 @@ async def get_surface():
             get_results(dft_task['results.xml'], label=f'{root}/results'),
             get_grid(dft_task['grid.xml'], label=f'{root}/grid')
         )
+
     return dict(await collect(*map(task, (2.7, 3, 3.15, 3.3, 3.6, 4, 5, 6, 7, 8, 10, 14))))
 
 

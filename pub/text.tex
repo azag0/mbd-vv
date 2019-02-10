@@ -93,7 +93,7 @@ At the same time, these metallic-density regions contribute dominantly to the po
 When combined with semilocal DFT, this would result in overpolarization and overbinding of bulk metals as well as of adsorbates on metallic surfaces.
 To avoid this double-counting of the long-range electron correlation, the VV10 nonlocal functional subtracts the limit of itself as the density gradient approaches zero in the final VV10 vdW energy expression, such that the vdW energy is equal to zero for jellium,
 \begin{equation}
-  E_\text{vdW}^\text{VV10} = E^\text{VV10}[n]-\big(E^\text{VV10}|_{\boldsymbol\nabla n\rightarrow0}\big)[n]
+  E_\text{vdW}^\text{VV10} = E^\text{VV10}[n]-\bigl(E^\text{VV10}|_{\boldsymbol\nabla n\rightarrow0}\bigr)[n]
 \end{equation}
 Such an approach cannot be used directly in a many-body model such as MBD, because unlike in a pairwise model the many-body vdW energy is not linear in the polarizability.
 This would result in all the nonlinear contributions, which can be dominating in a highly polarizable system such as a metal, not being subtracted by the zero-gradient limit.
@@ -141,10 +141,12 @@ In simple ionic solids, which do not feature covalent bonds, most of the
 polarizability comes from single-orbital regions ($\chi<1$), although a
 significant amount also comes from noncovalent orbital-overlap regions.
 
-Based on these numerical results, we devised a smooth cutoff function $0\leq g(s,\chi)\leq 1$ of the two density descriptors that distinguishes the nonmetallic density regions, and define the nonmetallic portion of the polarizability density as
-\begin{equation}
-  \alpha^\mathrm{VV'}[n]=g(s,\chi)\alpha^\text{VV}[n]
-\end{equation}
+Based on these numerical results, we devised a smooth cutoff function $0\leq g(I,\chi)\leq 1$ of the two density descriptors that distinguishes the nonmetallic density regions, and define the nonmetallic portion of the polarizability density as
+\begin{gather}
+  \alpha^\mathrm{VV'}[n](\mathbf r)=g(I,\chi)\alpha^\text{VV}[n], \\
+  g(I,\chi)=1-\frac{1-f\bigl(\chi-3\sqrt{I}\bigr)}{1+\exp\bigl(4(I-\SI{5}{\electronvolt})/\SI{1}{\electronvolt}\bigr)}, \\
+  f(x)=\exp\bigl(-cx/(1-x)\bigr)\theta(1-x)
+\end{gather}
 The exact shape of the cutoff function is to a certain degree arbitrary (the analytical form is presented in the Supplementary Material), but thanks to the unambiguous distinction in the polarizability distributions between organic compounds and metals, the results are not too sensitive to a particular choice.
 In general terms, the cutoff function can be characterized as being zero in the largest possible region around $(s,\chi)=(0,1)$ without affecting the polarizabilities of organic compounds.
 This way, the effective polarizability of a simple metal such as lithium is close to zero in our model, as is the vdW energy, whereas the difference between VV$'$ and VV polarizabilities is less than 2\% on average for organic molecules (the S66 set).

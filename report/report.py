@@ -14,7 +14,7 @@ from scipy.interpolate import interp1d
 
 from mbdvv.app import kcal, ev
 
-from mbdvv.physics import reduced_grad, vv_pol, alpha_kin, nm_cutoff, \
+from mbdvv.physics import ion_pot, vv_pol, alpha_kin, nm_cutoff, \
     lg_cutoff, lg_cutoff2
 import mbdvv.report as rp
 
@@ -434,7 +434,7 @@ energies_s66_vvopt.groupby('method').apply(rp.dataset_scale_stats) \
 # metallic systems.  To avoid this double-counting of the electron correlation,
 # we smoothly cut off the VV polarizability functional in metallic-density
 # regions.  These regions can be distinguished using the combination of two
-# local electron-density descriptors: the reduced gradient $s$ and the
+# local electron-density descriptors: the local gap $I$ and the
 # iso-orbital indicator $\alpha$,
 # $$
 # s[n]=\frac{|\boldsymbol\nabla n|}{2(3\pi^2)^\frac13n^\frac43},\quad
@@ -470,7 +470,7 @@ s66_subset_pts = (
     .assign(kin_dens=lambda x: x.kin_dens/2)
     .assign(
         alpha=lambda x: alpha_kin(x.rho, x.rho_grad_norm, x.kin_dens),
-        rgrad=lambda x: reduced_grad(x.rho, x.rho_grad_norm),
+        ion_pot=lambda x: ion_pot(x.rho, x.rho_grad_norm),
         vvpol=lambda x: vv_pol(x.rho, x.rho_grad_norm),
     )
 )
@@ -479,7 +479,7 @@ s66_subset_pts = (
 
 # ::hide
 fig, ax = plt.subplots(figsize=(4, 3))
-*_, img = rp.plot_rgrad_alpha(ax, s66_subset_pts)
+*_, img = rp.plot_ion_alpha(ax, s66_subset_pts)
 fig.colorbar(img)
 
 # ::>
@@ -512,14 +512,14 @@ def plot_benzene(axes):
             .assign(kin_dens=lambda x: x.kin_dens/2)
             .assign(
                 alpha=lambda x: alpha_kin(x.rho, x.rho_grad_norm, x.kin_dens),
-                rgrad=lambda x: reduced_grad(x.rho, x.rho_grad_norm),
+                ion_pot=lambda x: ion_pot(x.rho, x.rho_grad_norm),
                 vvpol=lambda x: vv_pol(x.rho, x.rho_grad_norm)/nmol,
             )
         )
-        rp.plot_rgrad_alpha(ax, df)
+        rp.plot_ion_alpha(ax, df)
         ax.set_title(label)
         ax2.hist(
-            df.rgrad, range=(0, .4), bins=100, weights=df.vvpol*df.part_weight,
+            df.ion_pot, range=(0, 1), bins=100, weights=df.vvpol*df.part_weight,
             lw=0,
         )
 
@@ -542,7 +542,7 @@ plot_benzene(axes)
 # vast majority of the polarizability in main-group metals comes from the
 # regions of the electron density that is close to the uniform electron gas
 # ($s\sim0$, $\alpha\sim1$). In transition metals, the polarizability is
-# distributed over a large range of the reduced gradient along the $\alpha\sim1$
+# distributed over a large range of the local gap along the $\alpha\sim1$
 # line, with a larger part still coming from low-gradient regions. These
 # features are largely shared by the transition-metal carbides and nitrides, but
 # the whole distribution is shifted to larger values of $\alpha\sim2$.
@@ -564,7 +564,7 @@ g = sns.FacetGrid(
     .loc[lambda x: x.rho > 0]
     .assign(
         alpha=lambda x: alpha_kin(x.rho, x.rho_grad_norm, x.kin_dens),
-        rgrad=lambda x: reduced_grad(x.rho, x.rho_grad_norm),
+        ion_pot=lambda x: ion_pot(x.rho, x.rho_grad_norm),
         vvpol=lambda x: vv_pol(x.rho, x.rho_grad_norm),
     )
     .groupby('label')
@@ -577,8 +577,8 @@ g = sns.FacetGrid(
     height=2.4,
 )
 g.map_dataframe(
-    lambda x, y, data, **kwargs: rp.plot_rgrad_alpha(plt, data),
-    'alpha', 'reduced gradient'
+    lambda x, y, data, **kwargs: rp.plot_ion_alpha(plt, data, norm=60),
+    'local gap', 'alpha'
 )
 
 
@@ -609,14 +609,14 @@ g.map_dataframe(
 
 # ::hide
 def plot_cutoff(ax, cutoff, title):
-    rgrad = np.linspace(0, .4, 1000)
+    ion_pot = np.linspace(0, 1, 1000)
     alpha = np.linspace(0, 12, 1000)
-    ax.set_xlabel(r'$s$')
+    ax.set_xlabel(r'$I$')
     ax.set_ylabel(r'$\alpha$')
     ax.set_title(title)
     ax.label_outer()
     return ax.contourf(
-        rgrad, alpha, cutoff(rgrad, alpha[:, None]),
+        ion_pot, alpha, cutoff(ion_pot, alpha[:, None]),
         np.linspace(0, 1, 10)
     )
 
@@ -1289,8 +1289,8 @@ energies_s66_vdw = rp.specs_to_binding_enes([
     {'scs': True, 'beta': 0.82, 'Rvdw_vol_scale': Fraction('1/7'), 'Rvdw17_base': True},
     {'scs': True, 'beta': 0.82, 'Rvdw17': True},
     {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.79, 'Rvdw17': True},
-    {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
-    {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+    {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
+    {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.81, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
 ], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
 
 
@@ -1418,9 +1418,9 @@ energies_solids_vdw = rp.specs_to_binding_enes(
     [
         {},
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.79, 'Rvdw17': True},  # optimal beta
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims'},  # optimal beta
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims', 'vdw_ref': 'BG'},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'aims'},
+        {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims'},  # optimal beta
+        {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims', 'vdw_ref': 'BG'},
+        {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'aims'},
     ],
     solids_ds,
     aims_data_solids.loc(0)[:, 1.],
@@ -1621,15 +1621,15 @@ def tmp():
         {},
         {
             'vv': 'lg2', 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff',
-            'vv_norm': 'aims', 'k_grid': (2, 2, 1), '_label': 'MBD@rlg2VV[scale]'
-        },
-        {
-            'vv': 'lg2', 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'aims',
-            'k_grid': (2, 2, 1), '_label': 'MBD@rlg2VV[1/7]'
+            'vv_norm': 'aims', 'k_grid': (2, 2, 1), '_label': 'MBD-NL'
         },
         {
             'scs': True, 'beta': 0.83, 'vdw_ref': 'surf', 'k_grid': (2, 2, 1),
             '_label': 'MBD@rsSCS[surf]'
+        },
+        {
+            'ts': True, 'param_a': 20, 'beta': 0.96, 'damping': 'fermi',
+            'vdw_ref': 'surf', '_label': 'TS[surf]'
         },
     ], aims_data)
 
