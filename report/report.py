@@ -6,11 +6,14 @@ from functools import partial
 import importlib
 from pkg_resources import resource_filename
 from fractions import Fraction
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 from tqdm import tqdm
 from scipy.interpolate import interp1d
+from scipy.optimize import minimize
 
 from mbdvv.app import kcal, ev
 
@@ -1660,3 +1663,124 @@ ax.set_xlim(2.7, 10)
 ax.set_ylim(None, 0.1)
 ax.set_xlabel(r'$\mathrm{Distance}/\mathrm{\AA}$')
 ax.set_ylabel(r'$\mathrm{Energy}/\mathrm{eV}$')
+
+# ::>
+
+results_layered = rp.setup_layered()
+
+# ::>
+
+
+def _get_layered_dataset():
+    idxs = []
+    data_vars = defaultdict(list)
+    for label, shift, data in results_layered:
+        idxs.append((label, shift))
+        data_vars['coords'].append(data['coords']['value'])
+        data_vars['lattice_vector'].append(data['lattice_vector']['value'])
+        data_vars['elems'].append(data['elems']['atom'])
+        data_vars['energy'].append(data['energy'][0]['value'][0])
+        data_vars['energy_vdw'].append(data['energy'][1]['value'][0])
+        data_vars['volumes'].append(data['volumes'])
+        data_vars['vv_pols'].append(data['vv_pols'])
+        data_vars['vv_pols_nm'].append(data['vv_pols_nm'])
+        data_vars['C6_vv_nm'].append(data['C6_vv_nm'])
+        data_vars['alpha_0_vv_nm'].append(data['alpha_0_vv_nm'])
+        data_vars['volumes_free'].append(data['free_atoms']['volumes'])
+        data_vars['C6_vv_free'].append(data['free_atoms']['C6_vv'])
+        data_vars['vv_pols_free'].append(data['free_atoms']['vv_pols'])
+        data_vars['alpha_0_vv_free'].append(data['free_atoms']['alpha_0_vv'])
+        data_vars['species'].append(data['free_atoms']['species'])
+    return xr.Dataset(
+        {
+            'energy': ('idx', data_vars['energy']),
+            'energy_vdw': ('idx', data_vars['energy_vdw']),
+            'volumes': (['idx', 'atom'], data_vars['volumes']),
+            'vv_pols': (['idx', 'freq', 'atom'], data_vars['vv_pols']),
+            'vv_pols_nm': (['idx', 'freq', 'atom'], data_vars['vv_pols_nm']),
+            'C6_vv_nm': (['idx', 'atom'], data_vars['C6_vv_nm']),
+            'alpha_0_vv_nm': (['idx', 'atom'], data_vars['alpha_0_vv_nm']),
+            'volumes_free': (['idx', 'specie'], data_vars['volumes_free']),
+            'C6_vv_free': (['idx', 'specie'], data_vars['C6_vv_free']),
+            'vv_pols_free': (['idx', 'freq', 'specie'], data_vars['vv_pols_free']),
+            'alpha_0_vv_free': (['idx', 'specie'], data_vars['alpha_0_vv_free']),
+        },
+        {
+            'elems': (['idx', 'atom'], data_vars['elems']),
+            'coords': (['idx', 'dim', 'atom'], data_vars['coords']),
+            'lattice_vector': (['idx', 'dim', 'lattvec'], data_vars['lattice_vector']),
+            'idx': pd.MultiIndex.from_tuples(idxs, names=['label', 'shift']),
+            'dim': list('xyz'),
+            'freq': results_layered[0][2]['omega_grid'],
+            'species': (['idx', 'atom'], data_vars['species']),
+            'freq_w': ('freq', results_layered[0][2]['omega_grid_w']),
+        },
+    ).unstack('idx')
+
+
+ds = _get_layered_dataset()
+ds['elems'] = ds['elems'].isel(shift=0)
+ds['species'] = ds['species'].isel(shift=0)
+ds['volumes_free'] = ds['volumes_free'].isel(shift=0)
+ds['C6_vv_free'] = ds['C6_vv_free'].isel(shift=0)
+ds['vv_pols_free'] = ds['vv_pols_free'].isel(shift=0)
+ds['alpha_0_vv_free'] = ds['alpha_0_vv_free'].isel(shift=0)
+ds
+
+# ::>
+
+(
+    xr.concat(
+        [ds['energy']-ds['energy_vdw'], ds['energy']],
+        pd.Index(['PBE', 'PBE+MBD'], name='method')
+    )
+    .pipe(lambda x: x-x.sel(shift=40))
+    .to_dataframe('energy')
+    .reset_index()
+    .pipe(
+        lambda x: sns.relplot(
+            data=x,
+            kind='line',
+            x='shift',
+            y='energy',
+            col='method',
+            hue='label',
+            height=3,
+        )
+        .set(xlim=(None, 10), ylim=(None, 0.002))
+    )
+)
+
+# ::>
+
+(
+    ds['energy']
+    .pipe(lambda x: x-x.sel(shift=40))
+    .sel(shift=slice(None, 4))
+    .to_dataframe()
+    .reset_index()
+    .groupby('label')
+    .apply(
+        lambda x: pd.Series(minimize(
+            interp1d(x['shift'].values, x['energy'].values, kind='cubic'),
+            [0],
+            bounds=[(-.5+1e-3, .5-1e-3)],
+        ))
+    )[['fun', 'x']]
+)
+
+# ::>
+
+
+latt = (
+    ds['lattice_vector']
+    .sel(shift=0)
+    .transpose('label', 'lattvec', 'dim')
+    .to_dataframe()
+    ['lattice_vector']
+    .unstack('dim')
+    .loc['MoS2']
+    .values*0.5291
+)
+print(latt)
+np.linalg.det(latt)/latt[2, 2]

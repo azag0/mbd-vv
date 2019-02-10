@@ -267,6 +267,49 @@ async def get_solids():
     return data, ds
 
 
+async def taskgen_layered(geom, tags, root, data, label, shift):
+    dft_task = await aims.task(
+        geom=geom,
+        aims=aims_master,
+        basis='tight',
+        tags=tags,
+        label=root,
+    )
+    results, = await collect(
+        get_results(dft_task['results.xml'], label=f'{root}/results'),
+    )
+    data.append((label, shift, results))
+
+
+@app.route('layered')
+async def get_layered():
+    global np
+    import numpy as np
+    shifts = [-0.5, -0.4, -0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 5, 10, 40]
+    tags = {**default_tags, **solids_tags}
+    del tags['total_energy_method']
+    del tags['output']
+    del tags['override_illconditioning']
+    tags['many_body_dispersion_nl'] = {'beta': 0.81}
+    coros = []
+    data = []
+    for label in ['MoS2', 'MoSe2', 'WS2', 'WSe2']:
+        geom_base = geomlib.readfile(
+            resource_filename(__name__, f'data/layered_geoms/{label.lower()}.vasp'),
+        )
+        tags['k_grid'] = (40, 40, 6)
+        for shift in shifts:
+            root = f'layered/{label}/{shift}'
+            geom = geom_base.copy()
+            xyz = geom.xyz
+            xyz[:, 2] = xyz[:, 2] + np.where(xyz[:, 2] < geom.lattice[2][2]/2, 0, shift/2)
+            geom.xyz = xyz
+            geom.lattice[2] = (0, 0, geom.lattice[2][2]+shift)
+            coros.append(taskgen_layered(geom, tags, root, data, label, shift))
+    await collect(*coros)
+    return data
+
+
 @app.route('surface')
 async def get_surface():
     global np

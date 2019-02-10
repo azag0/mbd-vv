@@ -650,6 +650,11 @@ def setup_surface():
         return app.get('surface')
 
 
+def setup_layered():
+    with app.context():
+        return app.get('layered')
+
+
 def free_atoms_pts():
     nrad = 700
     conf_pot = np.zeros((nrad,))
