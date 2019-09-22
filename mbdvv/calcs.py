@@ -267,45 +267,91 @@ async def get_solids():
     return data, ds
 
 
-async def taskgen_layered(geom, tags, root, data, label, shift):
+async def taskgen_layered(geom, tags, root, data, label, shift, xc):
+    has_grid = 'grid_out' in tags.get('many_body_dispersion_nl', ())
     dft_task = await aims.task(
         geom=geom,
         aims=aims_master,
         basis='tight',
         tags=tags,
-        label=root,
+        label=f'{root}/2' if has_grid else root,
+        extra_feat=[join_grids] if has_grid else None,
     )
-    results, = await collect(
-        get_results(dft_task['results.xml'], label=f'{root}/results'),
-    )
-    data.append((label, shift, results))
+    if not has_grid:
+        results, = await collect(
+            get_results(dft_task['results.xml'], label=f'{root}/results')
+        )
+        data.append((
+            label,
+            shift,
+            *xc,
+            results,
+            None,
+        ))
+    else:
+        grid_task, = await collect(
+            get_grid(dft_task['grid.xml'], label=f'{root}/grid')
+        )
+        data.append((
+            label,
+            shift,
+            *xc,
+            None,
+            str(grid_task['grid.h5'].path) if grid_task else None
+        ))
 
 
 @app.route('layered')
 async def get_layered():
     global np
     import numpy as np
-    shifts = [-0.5, -0.4, -0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 5, 10, 40]
-    tags = {**default_tags, **solids_tags}
-    del tags['total_energy_method']
-    del tags['output']
-    del tags['override_illconditioning']
-    tags['many_body_dispersion_nl'] = {'beta': 0.81}
+    import pandas as pd
+
+    shifts = [-0.4, -0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 5, 10, 40]
+    payload = [('pbe', s, (40, 6)) for s in shifts] + [
+        ('pbe0', 0, (10, 2)),
+        ('pbe0', 40, (10, 2)),
+        ('pbe', 0, (10, 2)),
+        ('pbe', 40, (10, 2)),
+    ]
+    tags_base = {**default_tags, **solids_tags}
+    del tags_base['total_energy_method']
+    del tags_base['output']
+    del tags_base['override_illconditioning']
+    tags_base['many_body_dispersion_nl'] = {'beta': 0.81}
     coros = []
     data = []
-    for label in ['MoS2', 'MoSe2', 'WS2', 'WSe2']:
+    df_layered = pd.read_csv(
+        resource_stream(__name__, 'data/layered.csv'),
+        index_col='label scale'.split()
+    )
+    for compound in df_layered.itertuples():
+        label, _ = compound.Index
         geom_base = geomlib.readfile(
             resource_filename(__name__, f'data/layered_geoms/{label.lower()}.vasp'),
         )
-        tags['k_grid'] = (40, 40, 6)
-        for shift in shifts:
-            root = f'layered/{label}/{shift}'
+        for xc, shift, (kx, kz) in payload:
+            tags = {**tags_base, 'xc': xc, 'k_grid': (kx, kx, kz)}
+            if kz == 2:
+                del tags['k_offset']
+                del tags['many_body_dispersion_nl']
+            root = f'layered/{label}/{xc}-{kz}/{shift}'
             geom = geom_base.copy()
             xyz = geom.xyz
-            xyz[:, 2] = xyz[:, 2] + np.where(xyz[:, 2] < geom.lattice[2][2]/2, 0, shift/2)
+            if compound.structure in ['P63/mmc', 'P63mc', 'P-6']:
+                xyz[:, 2] = xyz[:, 2] + np.where(xyz[:, 2] < geom.lattice[2][2]/2.1, 0, shift/2)
+            elif compound.structure in ['P-3m1', 'P4/nmm:1']:
+                xyz[:, 2] = xyz[:, 2] + np.where(xyz[:, 2] < geom.lattice[2][2]/2, 0, shift)
             geom.xyz = xyz
             geom.lattice[2] = (0, 0, geom.lattice[2][2]+shift)
-            coros.append(taskgen_layered(geom, tags, root, data, label, shift))
+            coros.append(taskgen_layered(geom, tags, root, data, label, shift, (xc, kz)))
+            if xc == 'pbe' and kz == 2 and shift in [0, 40]:
+                tags = tags.copy()
+                tags['many_body_dispersion_nl'] = {
+                    'beta': 0.81,
+                    'grid_out': True,
+                }
+                coros.append(taskgen_layered(geom, tags, root, data, label, shift, (xc, kz)))
     await collect(*coros)
     return data
 
@@ -317,11 +363,7 @@ async def get_surface():
     tags = {
         **default_tags,
         **solids_tags,
-        'many_body_dispersion_dev': {
-            'grid_atoms': (1, 54, 31, 28, 27, 4),
-            'grid_out': True
-        },
-        'many_body_dispersion_rsscs': {'beta': 0.81},
+        'many_body_dispersion_nl': {'beta': 0.81},
     }
     del tags['total_energy_method']
     del tags['output']
