@@ -4,7 +4,7 @@ from itertools import product
 import warnings
 from functools import partial
 import importlib
-from pkg_resources import resource_filename
+from pkg_resources import resource_filename, resource_stream
 from fractions import Fraction
 from collections import defaultdict
 
@@ -16,6 +16,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import minimize
 
 from mbdvv.app import kcal, ev
+from vdwsets import get_x23
 
 from mbdvv.physics import ion_pot, vv_pol, alpha_kin, nm_cutoff, \
     lg_cutoff, lg_cutoff2
@@ -1294,6 +1295,8 @@ energies_s66_vdw = rp.specs_to_binding_enes([
     {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.79, 'Rvdw17': True},
     {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
     {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.81, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+    {'scs': True, 'beta': 0.85},
+    {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
 ], s66_ds, aims_data_s66, alpha_vvs_s66, free_atoms_vv, unit=kcal)
 
 
@@ -1323,7 +1326,7 @@ energies_s66_vdw.groupby('method').apply(rp.dataset_scale_stats) \
 
 # ::hide
 energies_s66_vdw.groupby('method').apply(rp.dataset_scale_stats) \
-    .loc(1)[:, ['MRE', 'MARE']].round(3).iloc[[6, 7]]
+    .loc(1)[:, ['MRE', 'MARE']].round(3).iloc[[6, 7, 8]]
 
 # ::>
 # For reasons explained below, we may still need to use the 1/3 scaling rather
@@ -1413,6 +1416,36 @@ g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
 g.set(yticks=[-.3, -.1, 0, .1, .3])
 g.set_yticklabels([r'$-30\%$', r'$-10\%$', '0%', '10%', '30%'])
 g._legend.set_title('equilibrium\ndistance scale')
+
+# ::>
+
+energies_s66_vdw_bare = rp.evaluate_mbd_specs([
+    {'scs': True, 'beta': 0.83},
+    {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.81, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+], aims_data_s66, alpha_vvs_s66, free_atoms_vv)
+
+
+# ::>
+
+(
+    pd.merge(
+        mbdscan_data['/scf'].loc(0)['S66x8', :, :, ['pbe', 'pbe0'], False].reset_index()
+        .assign(system=lambda x: x['system'].str.replace('  ', ' ')),
+        energies_s66_vdw.reset_index(),
+        left_on=('system', 'dist'),
+        right_on=('label', 'scale'),
+        suffixes=('_dft', '_vdw'),
+    )
+    .drop('system dist cp natoms name group delta reldelta'.split(), axis=1)
+    .set_index('label scale xc method'.split())
+    .groupby('label scale xc'.split()).apply(lambda x: x.assign(ene_vdw=x['ene_vdw']-x['ene_vdw'].xs('PBE', level='method').iloc[0]))
+    .assign(ene=lambda x: x['ene_dft']+x['ene_vdw'])
+    .assign(delta=lambda x: x['ref']-x['ene'])
+    .assign(reldelta=lambda x: x['delta']/x['ref'])
+    .groupby('xc method'.split())
+    .apply(rp.dataset_scale_stats)
+    .loc(1)[:, 'N MRE MARE'.split()].round(3)
+)
 
 # ::>
 
@@ -1533,14 +1566,43 @@ energies_x23_all = rp.specs_to_binding_enes(
         {},
         {'scs': True, 'beta': 0.83, 'kdensity': 0.8},
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph', 'kdensity': 0.8},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph', 'kdensity': 0.8},
+        {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.81, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph', 'kdensity': 0.8},
+        {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph', 'kdensity': 0.8},
     ], x23_ds, aims_data_x23, alpha_vvs_x23, free_atoms_vv, unit=kcal)
+
+# ::>
+
+x23_translator = {x.geomname: x.Index[0] for x in get_x23().df.itertuples() if x.geomname != 'CO2'}
+x23_translator
 
 # ::>
 
 # ::hide
 energies_x23_all.groupby('method', sort=False) \
     .apply(rp.dataset_stats)[['MRE', 'MARE']].round(3)
+
+
+# ::>
+
+(
+    pd.merge(
+        mbdscan_data['/scf'].loc(0)['X23', :, :, ['pbe', 'pbe0'], False].reset_index()
+        .replace({'system': x23_translator}),
+        energies_x23_all.reset_index(),
+        left_on=('system', 'dist'),
+        right_on=('label', 'scale'),
+        suffixes=('_dft', '_vdw'),
+    )
+    .drop('system dist cp natoms name group delta reldelta'.split(), axis=1)
+    .set_index('label scale xc method'.split())
+    .groupby('label scale xc'.split()).apply(lambda x: x.assign(ene_vdw=x['ene_vdw']-x['ene_vdw'].xs('PBE', level='method').iloc[0]))
+    .assign(ene=lambda x: x['ene_dft']+x['ene_vdw'])
+    .assign(delta=lambda x: x['ref']-x['ene'])
+    .assign(reldelta=lambda x: x['delta']/x['ref'])
+    .groupby('xc method'.split())
+    .apply(rp.dataset_stats)
+    .loc(1)['N MRE MARE'.split()].round(3)
+)
 
 # ::>
 # On S12L, the performance is somewhat worse than with MBD@rsSCS, going from 5%
@@ -1563,8 +1625,9 @@ energies_s12l_all = rp.specs_to_binding_enes(
         {'vv': 'lg', 'C_vv': 0.0101, 'beta': 0.84, 'Rvdw17_base': True},
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.76, 'Rvdw17_base': True},
         {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.77, 'Rvdw17': True, 'vv_norm': 'nonsph'},
-        {'vv': 'lg2', 'C_vv': 0.0101, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
-    ], s12l_ds, aims_data_s12l, alpha_vvs_s12l, free_atoms_vv, unit=kcal, refname='energy_dmc')
+        {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.81, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+        {'vv': 'lg2', 'C_vv': 0.0093, 'beta': 0.83, 'Rvdw_scale_vv': 'cutoff', 'Rvdw17_base': True, 'vv_norm': 'nonsph'},
+    ], s12l_ds, aims_data_s12l, alpha_vvs_s12l, free_atoms_vv, unit=kcal, refname='energy')
 
 # ::>
 
@@ -1576,6 +1639,28 @@ energies_s12l_all.groupby('method', sort=False) \
 
 # ::hide
 energies_s12l_all['reldelta'].unstack('label').round(2)
+
+# ::>
+
+(
+    pd.merge(
+        mbdscan_data['/scf'].loc(0)['S12L', :, :, ['pbe', 'pbe0'], False].reset_index(),
+        energies_s12l_all.reset_index(),
+        left_on=('system', 'dist'),
+        right_on=('label', 'scale'),
+        suffixes=('_dft', '_vdw'),
+    )
+    .drop('system dist cp natoms name group delta reldelta'.split(), axis=1)
+    .set_index('label scale xc method'.split())
+    .groupby('label scale xc'.split()).apply(lambda x: x.assign(ene_vdw=x['ene_vdw']-x['ene_vdw'].xs('PBE', level='method').iloc[0]))
+    .assign(ene=lambda x: x['ene_dft']+x['ene_vdw'])
+    .assign(delta=lambda x: x['ref']-x['ene'])
+    .assign(reldelta=lambda x: x['delta']/x['ref'])
+    # ['reldelta'].unstack('label').round(2)
+    .groupby('xc method'.split())
+    .apply(rp.dataset_stats)
+    .loc(1)['N MRE MARE'.split()].round(3)
+)
 
 # ::>
 # ### Hybrid interface
@@ -1674,7 +1759,9 @@ results_layered = rp.setup_layered()
 def _get_layered_dataset():
     idxs = []
     data_vars = defaultdict(list)
-    for label, shift, data in results_layered:
+    for label, shift, xc, data in results_layered:
+        if not data:
+            continue
         idxs.append((label, shift))
         data_vars['coords'].append(data['coords']['value'])
         data_vars['lattice_vector'].append(data['lattice_vector']['value'])
@@ -1691,49 +1778,20 @@ def _get_layered_dataset():
         data_vars['vv_pols_free'].append(data['free_atoms']['vv_pols'])
         data_vars['alpha_0_vv_free'].append(data['free_atoms']['alpha_0_vv'])
         data_vars['species'].append(data['free_atoms']['species'])
-    return xr.Dataset(
-        {
-            'energy': ('idx', data_vars['energy']),
-            'energy_vdw': ('idx', data_vars['energy_vdw']),
-            'volumes': (['idx', 'atom'], data_vars['volumes']),
-            'vv_pols': (['idx', 'freq', 'atom'], data_vars['vv_pols']),
-            'vv_pols_nm': (['idx', 'freq', 'atom'], data_vars['vv_pols_nm']),
-            'C6_vv_nm': (['idx', 'atom'], data_vars['C6_vv_nm']),
-            'alpha_0_vv_nm': (['idx', 'atom'], data_vars['alpha_0_vv_nm']),
-            'volumes_free': (['idx', 'specie'], data_vars['volumes_free']),
-            'C6_vv_free': (['idx', 'specie'], data_vars['C6_vv_free']),
-            'vv_pols_free': (['idx', 'freq', 'specie'], data_vars['vv_pols_free']),
-            'alpha_0_vv_free': (['idx', 'specie'], data_vars['alpha_0_vv_free']),
-        },
-        {
-            'elems': (['idx', 'atom'], data_vars['elems']),
-            'coords': (['idx', 'dim', 'atom'], data_vars['coords']),
-            'lattice_vector': (['idx', 'dim', 'lattvec'], data_vars['lattice_vector']),
-            'idx': pd.MultiIndex.from_tuples(idxs, names=['label', 'shift']),
-            'dim': list('xyz'),
-            'freq': results_layered[0][2]['omega_grid'],
-            'species': (['idx', 'atom'], data_vars['species']),
-            'freq_w': ('freq', results_layered[0][2]['omega_grid_w']),
-        },
-    ).unstack('idx')
+    idx = pd.MultiIndex.from_tuples(idxs, names=['label', 'shift'])
+    return pd.DataFrame(data_vars, index=idx)
 
 
-ds = _get_layered_dataset()
-ds['elems'] = ds['elems'].isel(shift=0)
-ds['species'] = ds['species'].isel(shift=0)
-ds['volumes_free'] = ds['volumes_free'].isel(shift=0)
-ds['C6_vv_free'] = ds['C6_vv_free'].isel(shift=0)
-ds['vv_pols_free'] = ds['vv_pols_free'].isel(shift=0)
-ds['alpha_0_vv_free'] = ds['alpha_0_vv_free'].isel(shift=0)
-ds
+df = _get_layered_dataset()
 
 # ::>
 
 (
-    xr.concat(
+    df[['energy', 'energy_vdw']].to_xarray()
+    .pipe(lambda ds: xr.concat(
         [ds['energy']-ds['energy_vdw'], ds['energy']],
         pd.Index(['PBE', 'PBE+MBD'], name='method')
-    )
+    ))
     .pipe(lambda x: x-x.sel(shift=40))
     .to_dataframe('energy')
     .reset_index()
@@ -1747,40 +1805,77 @@ ds
             hue='label',
             height=3,
         )
-        .set(xlim=(None, 10), ylim=(None, 0.002))
+        .set(xlim=(-.4, .7), ylim=(None, 0.002))
     )
 )
 
 # ::>
 
+layered_enes = (
+    pd.concat([
+        df['energy'].to_xarray()
+        .pipe(lambda x: x-x.sel(shift=40))
+        .sel(shift=slice(None, 4))
+        .to_dataframe()
+        .reset_index()
+        .groupby('label')
+        .apply(
+            lambda x: pd.Series(minimize(
+                interp1d(x['shift'].values, x['energy'].values, kind='cubic'),
+                [0],
+                bounds=[(-.4, .7)],
+            ))
+        )[['fun', 'x']]
+        .applymap(lambda x: x[0])
+        .rename(columns={'fun': 'energy_uc', 'x': 'c_shift'}),
+        df['lattice_vector']
+        .xs(0, level='shift')
+        .pipe(lambda x: x*0.5291)
+        .apply(lambda x: np.linalg.det(x)/x[2, 2])
+        .to_frame('area'),
+        pd.read_csv(
+            resource_stream('mbdvv', 'data/layered.csv'),
+            index_col='label scale'.split()
+        )
+        .xs(1, level='scale')
+        [['c', 'energy']]
+        .rename(columns={'c': 'c_ref', 'energy': 'energy_ref'}),
+    ], axis=1)
+    .assign(n_layer=lambda x: np.where((x['c_ref'] > 10) | (x['area'] < 6), 2, 1))
+    .assign(energy=lambda x: -x['energy_uc']*ev*1e3/x['area']/x['n_layer'])
+)
+layered_enes
+
+# ::>
+
+layered_enes.loc[['BN', 'graphite'], 'energy_uc']*ev*1e3/4
+
+# ::>
+
 (
-    ds['energy']
-    .pipe(lambda x: x-x.sel(shift=40))
-    .sel(shift=slice(None, 4))
-    .to_dataframe()
-    .reset_index()
-    .groupby('label')
-    .apply(
-        lambda x: pd.Series(minimize(
-            interp1d(x['shift'].values, x['energy'].values, kind='cubic'),
-            [0],
-            bounds=[(-.5+1e-3, .5-1e-3)],
-        ))
-    )[['fun', 'x']]
+    layered_enes
+    .assign(err=lambda x: (x['energy']-x['energy_ref'])/x['energy_ref'])
+    .assign(aerr=lambda x: abs(x['err']))
+    [['err', 'aerr']].describe()
 )
 
 # ::>
 
+df.keys()
 
-latt = (
-    ds['lattice_vector']
-    .sel(shift=0)
-    .transpose('label', 'lattvec', 'dim')
-    .to_dataframe()
-    ['lattice_vector']
-    .unstack('dim')
-    .loc['MoS2']
-    .values*0.5291
+# ::>
+
+(
+    df
+    .assign(vv_shave=lambda x: (x['vv_pols_nm']-x['vv_pols'])/x['vv_pols'])
+    .groupby('label shift'.split())
+    .apply(lambda x: pd.DataFrame({
+        'vv_shave': x['vv_shave'].iloc[0][0],
+        'vv_pols': x['vv_pols'].iloc[0][0],
+        'vv_pols_nm': x['vv_pols_nm'].iloc[0][0],
+        'elem': x['elems'].iloc[0]
+    }))
+    .reset_index()
+    .groupby('elem shift'.split()).apply(lambda x: x['vv_shave'].describe())
+    .loc(0)[:, [-.4, 0, 40]]
 )
-print(latt)
-np.linalg.det(latt)/latt[2, 2]
