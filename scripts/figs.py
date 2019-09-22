@@ -135,13 +135,13 @@ for ax, group in zip(axes.flat, solid_groups.values()):
     df = grouped.get_group(group)
     im = rp.plot_ion_alpha(ax, df, norm=62)[-1]
     ax.set_title(group)
-    ax.set_xticks([0, 0.3])
+    ax.set_xticks([0, 0.5])
     ax.set_yticks([0, 1, 10])
 for i, j in product(range(axes.shape[0]), range(axes.shape[1])):
     ax = axes[i, j]
     if (i, j) in {(1, 0), (1, 1), (0, 2)}:
-        ax.set_xticklabels([0, 0.3])
-        ax.set_xlabel(r'$s[n]$')
+        ax.set_xticklabels([0, 0.5])
+        ax.set_xlabel(r'$I[n]$')
     else:
         ax.set_xticklabels([])
     if j == 0:
@@ -185,9 +185,9 @@ for ax, label, nmol, row in payload:
     )
     rp.plot_ion_alpha(ax, df)
     ax.set_title(label)
-    ax.set_xticks([0, 0.3])
-    ax.set_xticklabels([0, 0.3])
-    ax.set_xlabel(r'$s[n]$')
+    ax.set_xticks([0, 0.5])
+    ax.set_xticklabels([0, 0.5])
+    ax.set_xlabel(r'$I[n]$')
     ax.set_yticks([0, 1, 10])
     ax.set_yticklabels([0, 1, 10])
 axes[0].set_ylabel(r'$\chi[n]$')
