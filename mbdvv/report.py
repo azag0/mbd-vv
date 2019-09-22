@@ -88,7 +88,7 @@ def screening(coords, alpha_0, R_vdw=None, beta=0.,
 def mbd_energy(coords, alpha_0, C6, R_vdw, beta,
                lattice=None, k_grid=None, rpa=False, scs=False, no_eigscale=False,
                ts=False, ord2=False, damping='fermi,dip', param_a=6., scr_damping=None,
-               get_vdw_params=False, no_vdwscs=False, vdwscs=False):
+               get_vdw_params=False, no_vdwscs=False, vdwscs=False, mbd=mbd):
     coords = _array(coords, dtype=float, order='F')
     alpha_0 = _array(alpha_0, dtype=float)
     C6 = _array(C6, dtype=float)
