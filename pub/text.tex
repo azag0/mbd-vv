@@ -207,77 +207,57 @@ The color encodes the class of a solid: transition metals (TM), main-group metal
 }\label{fig:solids-errors}
 \end{figure}
 
-\begin{figure}[t!]
-\centering
-\includegraphics[width=\linewidth]{../media/surface.pdf}
-\caption{\textbf{Binding energy of a single benzene molecule on a (111) silver surface.}
-}\label{fig:silver-benzene}
-\end{figure}
-
 \begin{table}[t!]
 \centering
-\caption{\textbf{Performance on vdW benchmark data sets.}}\label{tab:performance}
-\begin{tabular}{ll*{3}{S[
-  table-format=2.1,
-  table-align-text-post=false,
-  table-space-text-post=\%,
-]}}
+\caption{\textbf{Errors in interaction energies on vdW benchmark data sets.}}\label{tab:performance}
+\small
+\begin{tabular}{%
+  ll
+  *{2}{S[
+    table-format=2.1,
+    table-align-text-post=false,
+    table-space-text-post=\%,
+  ]}
+  S[
+    table-format=2.1,
+    table-align-text-post=false,
+  ]
+  S[
+    table-format=-2.1,
+    table-align-text-pre=false,
+    table-align-text-post=false,
+    table-space-text-pre=k,
+  ]
+}
 \toprule
-method & & {S66} & {X23} & {S12L} \\
+method & & {S66} & {X23} & {S12L} & {``26''$^a$} \\
 \midrule
-PBE            & MARE$^\text{a}$ & 57\%   & 60\%   & 82\%   \\
-               & MRE$^\text{b}$ & 57\%   & 60\%   & 82\%   \\
-PBE+MBD@rsSCS  & MARE & 8.4\%  & 6.4\%  & 5.3\%  \\
-               & MRE & -3.1\% & -3.4\% & -1.4\% \\
-PBE+MBD-NL     & MARE & 9.3\%  & 6.2 \% & 9.2\%  \\
-               & MRE & -0.1\% & 1.9\%  & 6.4\%  \\
-PBE+VV10       & MARE & 9.9\%  & 15\%   & 15\%   \\
-               & MRE & -6.1\% & -15\%  & -15\%  \\
+PBE        & MRE$^b$  & 57\%   & 60\%   & 82\%   & 105\%      \\
++MBD@rsSCS & MARE$^c$ & 8.4\%  & 6.4\%  & 5.3\%  & (14\%)$^d$ \\
+           & MRE      & -3.1\% & -3.4\% & -1.4\% & (-10\%)    \\
++MBD-NL    & MARE     & 9.3\%  & 6.2 \% & 9.2\%  & 21\%       \\
+           & MRE      & -0.1\% & 1.9\%  & 6.4\%  & 21\%       \\
++VV10      & MARE     & 9.9\%  & 15\%   & 15\%   & (52\%)$^e$ \\
+           & MRE      & -6.1\% & -15\%  & -15\%  & (-52\%)    \\
 \midrule
-PBE0           & MARE & 56\%   & 58\%   & 75\%   \\
-               & MRE & 56\%   & 58\%   & 75\%   \\
-PBE0+MBD@rsSCS & MARE & 7.6\%  & 5.4\%  & 6.5\%  \\
-               & MRE & -1.1\% & -1.7\% & -4.4\% \\
-PBE0+MBD-NL    & MARE & 8.5 \% & 5.7\%  & 6.8\%  \\
-               & MRE & 0.0\%  & 3.0\%  & 1.7\%  \\
-PBE0+VV10      & MARE & 8.3\%  & 15\%   & 20\%   \\
-               & MRE & -5.3\% & -15\%  & -20\%  \\
+PBE0       & MRE  & 56\%   & 58\%   & 75\%   & \\
++MBD@rsSCS & MARE & 7.6\%  & 5.4\%  & 6.5\%  & \\
+           & MRE  & -1.1\% & -1.7\% & -4.4\% & \\
++MBD-NL    & MARE & 8.5 \% & 5.7\%  & 6.8\%  & \\
+           & MRE  & 0.0\%  & 3.0\%  & 1.7\%  & \\
++VV10      & MARE & 8.3\%  & 15\%   & 20\%   & \\
+           & MRE  & -5.3\% & -15\%  & -20\%  & \\
 \bottomrule
 \end{tabular}
 
-\small
-$^\text{a}$Mean absolute relative error.
-$^\text{b}$Mean relative error.
-\end{table}
-
-\begin{table}[t!]
-\centering
-\caption{\textbf{Interlayer binding energy ($E$) and lattice constant ($c$) in selected dichalcogenides.}}\label{tab:dichalcogenides}
-\begin{tabular}{llS[
-  table-format=2.1,
-  round-mode=places,
-  round-precision=1,
-]S[
-  table-format=2.1,
-  round-mode=places,
-  round-precision=2,
-]}
-\toprule
-compound & method & {$E/$\si{\electronvolt\per\square\angstrom}} & {$c/$\si{\angstrom}} \\
-\midrule
-MoS$_2$  & RPA$^\text{a}$/Expt. & 20.5 & 12.29 \\
-         & PBE+MBD-NL & 14.345175 & 12.356805 \\
-MoSe$_2$ & RPA/Expt. & 19.6 & 12.90 \\
-         & PBE+MBD-NL & 14.463554 & 13.048212 \\
-WS$_2$   & RPA/Expt. & 20.2 & 12.32 \\
-         & PBE+MBD-NL & 14.198353 & 12.683519 \\
-WSe2$_2$ & RPA/Expt. & 20.0 & 12.96 \\
-         & PBE+MBD-NL & 14.889193 & 13.307066 \\
-\bottomrule
-\end{tabular}
-
-\small
-$^\text{a}$RPA binding energies taken from~\citep{BjorkmanPRL12}.
+\begin{minipage}{.96\linewidth}
+\footenotesize%
+$^a$Data set of interlayer binding energies of 26 layered materials with RPA benchmark energies by \citet{BjorkmanPRL12}.
+$^b$Mean relative error. Negative numbers indicate overbinding.
+$^c$Mean absolute relative error.
+$^d$The eigenvalue rescaling for MBD by \citet{GouldJCTC16a} must be used, otherwise the MBD Hamiltonian has nonnegative eigenvalues for only 6 compounds (graphite, BN, PbO, and 3 TMDCs).
+$^e$Results as given by \citet{BjorkmanPRB12} for the original PW86r+VV10 combination.
+\end{minipage}
 \end{table}
 
 Next, we briefly describe several benchmark tests of the MBD-NL model, with details about the calculations, more detailed results, and additional tests reported in the Supplemental Material.
@@ -289,20 +269,35 @@ The same holds for transition-metal carbides and nitrides.
 Ionic solids are underbound by 4\% with PBE, which is reduced nearly to zero when the missing nonlocal correlation is added by MBD-NL, whereas MBD@rsSCS overbinds some of the ionic solids substantially.
 The performance of MBD-NL on semiconductors is similar to that of MBD@rsSCS\@.
 
-The overall performance on the S66 set, a set of organic molecular crystals (X23), and a set of supramolecular complexes (S12L) is summarized in Table~\ref{tab:performance}.
+The overall performance on the S66 set, a set of organic molecular crystals (X23), a set of supramolecular complexes (S12L), and a set of 26 layered materials (``26'', \citet{BjorkmanPRB12}) is summarized in Table~\ref{tab:performance}.
 On X23, the performance of MBD-NL is even slightly improved compared to MBD@rsSCS, with a similar tendency to underbind as that of MBD@rsSCS to overbind.
 On S12L, the accuracy of PBE+MBD-NL is reduced compared to PBE+MBD@rsSCS, going from 5\% to 9\%, but the accuracy is equal with the PBE0 functional, with MBD-NL having a smaller MRE compared to MBD@rsSCS\@.
 Of the three standard vdW data sets, S12L is the only one where PBE and PBE0 differ in performance.
 This results mostly from PBE binding somewhat more the $\mathrm\pi$--$\mathrm\pi$ complexes.
 The proper balance between semilocal DFT and long-range vdW models in the case of large $\mathrm\pi$--$\mathrm\pi$ complexes is unclear.
 
-To complete a brief overview of the performance of the new model, we present two cases relevant to surface science.
+None of the existing DFT+vdW approaches, including the proposed MBD-NL, can properly describe the vdW interaction between two metallic systems, because that would require long-range coupling of the nonlocal metallic charge fluctuations, which none of these methods does.
+In practice, this issue can be partially observed in layered vdW materials with small band gaps, such as the transition-metal dichalcogenides (TMDCs), which pose a hard problem for existing vdW methods.
+TMDCs comprise 23 compounds in the ``26'' set of 26 layered materials compiled by \citet{BjorkmanPRL12}, besides hexagonal graphite and BN, and layered PbO, with reference energies obtained by random-phase approximation (RPA).
+Both MBD@rsSCS and VV10 overbind the ``26'' set, by 10\% and 52\%, respectively, indicating that these models overpolarize the layered compounds (Table~\ref{tab:performance}).
+This is further manifest in the fact that the MBD Hamiltonian has negative eigenvalues for 20 of the 26 compounds, which must be treated by the eigenvalue rescaling as proposed by \citet{GouldJCTC16a}.
+The overpolarization is a result of both MBD@rsSCS and VV10 treating even the nonlocal part of the charge fluctuations in a local manner.
+In contrast, this nonlocal part of the electronic response generated by low-gradient density regions is removed in the MBD-NL model, resulting in its underbinding of the ``26'' set by 21\%.
+This is further corroborated by the fact that MBD-NL has the best accuracy from the three models for the three non-TMDC compounds in the ``26'' set (graphite, BN, PbO), with mean absolute relative error of 7\%, compared to 27\% (MBD@rsSCS) and 53\% (VV10).
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=\linewidth]{../media/surface.pdf}
+\caption{\textbf{Binding energy of a single benzene molecule on a (111) silver surface.}
+}\label{fig:silver-benzene}
+\end{figure}
+
+To complete a brief overview of the performance of the new model, we present a case relevant to surface science.
 Figure~\label{fig:silver-benzene} shows the binding curve of a benzene molecule adsorbed on a (111) silver surface.
 MBD-NL performs similarly to the MBD@rsSCS[surf] method~\citep{RuizPRB16}, which was developed specifically to treat adsorption of organic compounds on metallic surfaces, and provides accurate results compared to experiment.
 The large relative magnitude of the many-body effects in this system can be seen from the comparison with the pairwise TS[surf] method.
-Table~\label{tab:dichalcogenides} presents the performance for four dichalcogenides, which represent a class of ionic vdW-bound layered materials that semilocal DFT functionals predict to be barely stable due to the missing vdW interactions.
-They are of relevance to the MBD approach because the MBD@rsSCS models fails for these systems due to overpolarization of the ions and subsequent dipole catastrophe~\citep{GouldJCTC16a}.
-In contrast PBE+MBD-NL gives finite binding energies, albeit underbound by 25\%, and interlayer distances in good agreement with reference values.
+
+% TODO discuss Gould
 
 Before concluding, we discuss some of the potential weaknesses of MBD-NL\@.
 First, the VV polarizability functional is semi-empirical and relatively simple, and its deficiencies can be observed already on the $C_6$ coefficients of free atoms (Figure~\ref{fig:vv-periodic-table}).
