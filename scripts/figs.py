@@ -24,7 +24,7 @@ MBDSCAN_DATA = pd.HDFStore('data/mbd-scan-data.h5')
 
 def savefig(fig, name, ext='pdf', **kwargs):
     fig.savefig(
-        f'media/{name}.{ext}',
+        f'pub/figs/{name}.{ext}',
         transparent=True,
         bbox_inches='tight',
         pad_inches=0,
