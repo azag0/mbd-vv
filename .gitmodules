@@ -7,3 +7,6 @@
 [submodule "pyatsol"]
 	path = vendor/pyatsol
 	url = git@github.com:jhrmnn/atomic-solver.git
+[submodule "mbd-vv-pub"]
+	path = pub
+	url = git@github.com:jhrmnn/mbd-vv-pub.git

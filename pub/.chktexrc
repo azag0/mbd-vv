@@ -1,9 +1,0 @@
-DashExcpt = {
-    Casimir--Polder
-    exchange--correlation
-    Monte--Carlo
-    fluctuation--dissipation
-    Kohn--Sham
-}
-CmdLine = {
-}
