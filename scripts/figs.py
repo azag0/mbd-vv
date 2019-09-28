@@ -141,7 +141,7 @@ for i, j in product(range(axes.shape[0]), range(axes.shape[1])):
     ax = axes[i, j]
     if (i, j) in {(1, 0), (1, 1), (0, 2)}:
         ax.set_xticklabels([0, 0.5])
-        ax.set_xlabel(r'$I[n]$')
+        ax.set_xlabel(r'$I[n]/E_{\mathrm{h}}$')
     else:
         ax.set_xticklabels([])
     if j == 0:
@@ -150,7 +150,7 @@ for i, j in product(range(axes.shape[0]), range(axes.shape[1])):
     else:
         ax.set_yticklabels([])
 fig.colorbar(im, ax=axes[-1, -1], fraction=1)
-axes[0, 2].set_xlabel(r'$\hspace{2}s[n]$')
+axes[0, 2].set_xlabel(r'$\hspace{2}I[n]/E_{\mathrm{h}}$')
 axes[-1, -1].set_visible(False)
 
 savefig(fig, 'solids-hists')
@@ -187,7 +187,7 @@ for ax, label, nmol, row in payload:
     ax.set_title(label)
     ax.set_xticks([0, 0.5])
     ax.set_xticklabels([0, 0.5])
-    ax.set_xlabel(r'$I[n]$')
+    ax.set_xlabel(r'$I[n]/E_{\mathrm{h}}$')
     ax.set_yticks([0, 1, 10])
     ax.set_yticklabels([0, 1, 10])
 axes[0].set_ylabel(r'$\chi[n]$')
@@ -360,7 +360,7 @@ else:
     )
     vdw_energies_surface.to_hdf(VDW_ENERGIES_SURFACE_H5, 'table')
 
-fig, ax = plt.subplots(figsize=(4, 3))
+fig, ax = plt.subplots(figsize=(3, 2))
 sns.lineplot(
     data=vdw_energies_surface.pipe(rp.ene_dft_vdw)['ene'].unstack('scale')
     .pipe(lambda df: df.apply(lambda y: y-df.iloc(1)[-1])).stack().to_frame('ene')
@@ -373,6 +373,8 @@ sns.lineplot(
 ax.axhline(color='black', linewidth=0.5, zorder=-1)
 ax.set_xlim(2.7, 10)
 ax.set_ylim(None, 0.1)
-ax.set_xlabel(r'$\mathrm{Distance}/\mathrm{\AA}$')
-ax.set_ylabel(r'$\mathrm{Energy}/\mathrm{eV}$')
+ax.set_xlabel(r'$d$(surface–molecule)$/\mathrm{\AA}$')
+ax.set_ylabel(r'$E/\mathrm{eV}$')
+ax.set_xticks([3, 9])
+ax.set_yticks([-0.5, 0])
 savefig(fig, 'surface')
