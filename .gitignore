@@ -3,5 +3,5 @@
 /build/
 *.egg-info/
 /data
-/media/*.svgz
 /report/*.html
+/notebooks/tmp*
