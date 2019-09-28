@@ -152,10 +152,12 @@ We impose two simple requirements on this cutoff.
 First, the density regions with a local gap lower than the work function of jellium ($<\SI{5}{\electronvolt}$) should not contribute to the calculated vdW energy, because those are assumed to be covered by a semilocal XC functional.
 Second, the VV polarizability of simple covalent compounds (exemplified by a benzene molecule) should not be influenced by the cutoff, because it should be concerned only with metallic systems.
 The following function $g$ satisfies these two requirements:
-\begin{gather}
+\begin{equation}
+\begin{gathered}
   g(I,\chi)=1-\frac{1-f\bigl(\chi-3\sqrt{I}\bigr)}{1+\exp\bigl(4(I-\SI{5}{\electronvolt})/\SI{1}{\electronvolt}\bigr)}, \\
   f(x)=\exp\bigl(-cx/(1-x)\bigr)\theta(1-x)
-\end{gather}
+\end{gathered}
+\end{equation}
 Function $g$ is composed from a logistic damping function centered at $\SI{5}{\electronvolt}$ with the width of $\SI{1}{\electronvolt}$, and form function $f$ taken from the SCAN functional \citep{SunPRL15}, where it also serves to interpolate between $\chi=0$ and $\chi=1$.
 We find that $c=0.1$ ensures that the effect of the cutoff on the VV polarizability of a benzene molecule is negligible ($<2\%$).
 
@@ -319,3 +321,5 @@ While XC functionals such as PBE are usually well-behaved and the range separati
 In conclusion, we have developed a vdW model that combines advantages of interatomic many-body approaches and nonlocal pairwise functionals.
 By normalizing to free atoms and jellium, we have retained the accuracy of best DFT+vdW approaches while extending applicability to ionic compounds and hybrid metal-organic interfaces, which is demonstrated by a number of benchmark calculations.
 Our approach enables efficient, accurate, and consistent modeling of many-body vdW interactions in a substantially broader range of systems than previously possible.
+
+% TODO acknowledgements?
