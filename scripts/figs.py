@@ -128,7 +128,7 @@ else:
     vdw_energies_solids.to_hdf(VDW_ENERGIES_SOLIDS_H5, 'table')
 
 fig, axes = plt.subplots(
-    2, 3, figsize=(4, 3), gridspec_kw=dict(hspace=0.3, wspace=0.1)
+    2, 3, figsize=(3.7, 2.8), gridspec_kw=dict(hspace=0.3, wspace=0.1)
 )
 grouped = solids_vv.groupby('group')
 for ax, group in zip(axes.flat, solid_groups.values()):
@@ -159,7 +159,7 @@ aims_data_s66, s66_ds, alpha_vvs_s66 = rp.setup_s66()
 aims_data_x23, _, _ = rp.setup_x23()
 
 fig, axes = plt.subplots(
-    1, 3, figsize=(4, 1.3), gridspec_kw=dict(wspace=0.1), sharey=True
+    1, 3, figsize=(3.7, 1.2), gridspec_kw=dict(wspace=0.1), sharey=True
 )
 payload = zip(
     axes,
@@ -296,7 +296,7 @@ with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
         hue='scale',
         order='PBE PBE+MBD@rsSCS PBE+MBD-NL PBE+VV10'.split(),
         aspect=1.6,
-        height=1.8,
+        height=1.75,
         margin_titles=True,
         fliersize=1,
     )
@@ -318,7 +318,7 @@ g = sns.catplot(
     hue='group',
     order='PBE PBE+MBD@rsSCS PBE+MBD-NL'.split(),
     aspect=2,
-    height=1.5,
+    height=1.4,
     margin_titles=True,
     fliersize=1,
 )
