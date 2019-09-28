@@ -69,7 +69,7 @@ def scaled_eigs(x):
 
 
 def screening(coords, alpha_0, R_vdw=None, beta=0.,
-              lattice=None, damping='fermi,dip,gg', param_a=6.):
+              lattice=None, damping='fermi,dip,gg', param_a=6., mbd=mbd):
     coords = _array(coords, dtype=float, order='F')
     alpha_0 = _array(alpha_0, dtype=float)
     R_vdw = _array(R_vdw, dtype=float)
@@ -88,7 +88,8 @@ def screening(coords, alpha_0, R_vdw=None, beta=0.,
 def mbd_energy(coords, alpha_0, C6, R_vdw, beta,
                lattice=None, k_grid=None, rpa=False, scs=False, no_eigscale=False,
                ts=False, ord2=False, damping='fermi,dip', param_a=6., scr_damping=None,
-               get_vdw_params=False, no_vdwscs=False, vdwscs=False, mbd=mbd):
+               get_vdw_params=False, no_vdwscs=False, vdwscs=False, mbd=mbd,
+               return_nan=False):
     coords = _array(coords, dtype=float, order='F')
     alpha_0 = _array(alpha_0, dtype=float)
     C6 = _array(C6, dtype=float)
@@ -101,7 +102,8 @@ def mbd_energy(coords, alpha_0, C6, R_vdw, beta,
         for a, a_scr in zip(alpha_dyn, alpha_dyn_rsscs):
             a_scr[:] = screening(
                 coords, a, R_vdw, beta, lattice=lattice,
-                damping=scr_damping or damping + ',gg', param_a=param_a
+                damping=scr_damping or damping + ',gg', param_a=param_a,
+                mbd=mbd,
             )
         alpha_0_rsscs = alpha_dyn_rsscs[0, :]
         if np.any(alpha_0_rsscs <= 0):
@@ -143,7 +145,10 @@ def mbd_energy(coords, alpha_0, C6, R_vdw, beta,
                 np.diag(np.repeat(omega_rsscs**2, 3))+np.outer(pre, pre)*T
             )
             if np.any(eigs < 0):
-                raise NegativeEigs(k_point, eigs)
+                if return_nan:
+                    eigs = np.nan
+                else:
+                    raise NegativeEigs(k_point, eigs)
             ene += np.sum(np.sqrt(eigs))/2-3*np.sum(omega_rsscs)/2
         else:
             for u, uw in zip(freq[1:], freq_w[1:]):
@@ -154,7 +159,10 @@ def mbd_energy(coords, alpha_0, C6, R_vdw, beta,
                 if not no_eigscale:
                     eigs = scaled_eigs(eigs)
                 if np.any(eigs <= -1):
-                    raise NegativeEigs(k_point, u, eigs)
+                    if return_nan:
+                        eigs = np.nan
+                    else:
+                        raise NegativeEigs(k_point, eigs)
                 if ord2:
                     log_eigs = -eigs**2/2
                 elif not no_eigscale:
