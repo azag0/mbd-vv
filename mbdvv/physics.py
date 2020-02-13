@@ -32,7 +32,7 @@ def logistic(x, *, w, x0):
 
 
 def scanintp(x, *, c):
-    return np.where(x < 0, 1, np.where(x > 1, 0, np.exp(-c*x/(1-x))))
+    return np.where(x <= 0, 1, np.where(x >= 1, 0, np.exp(-c*x/(1-x))))
 
 
 def vv_pol(n, grad, C=0.0093, u=0.):

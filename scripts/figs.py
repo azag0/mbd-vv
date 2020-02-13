@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 
-from mbdvv.physics import ion_pot, vv_pol, alpha_kin
+from mbdvv.physics import ion_pot, vv_pol, alpha_kin, lg_cutoff2
 from mbdvv.app import kcal, ev
 import mbdvv.report as rp
 
@@ -134,7 +134,7 @@ grouped = solids_vv.groupby('group')
 for ax, group in zip(axes.flat, solid_groups.values()):
     df = grouped.get_group(group)
     im = rp.plot_ion_alpha(ax, df, norm=62)[-1]
-    ax.set_title(group)
+    ax.set_title(group, fontdict={'fontsize': 8.6})
     ax.set_xticks([0, 0.5])
     ax.set_yticks([0, 1, 10])
 for i, j in product(range(axes.shape[0]), range(axes.shape[1])):
@@ -299,6 +299,7 @@ with sns.color_palette(list(reversed(sns.color_palette('coolwarm', 8)))):
         height=1.75,
         margin_titles=True,
         fliersize=1,
+        linewidth=0.8,
     )
 g.ax.axhline(color='black', linewidth=0.5, zorder=-1)
 g.set(ylim=(-.5, .5))
@@ -307,7 +308,7 @@ g.set_xlabels('')
 g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
 g.set(yticks=[-.3, -.1, 0, .1, .3])
 g.set_yticklabels([r'$-30\%$', r'$-10\%$', '0%', '10%', '30%'])
-g._legend.set_title('equilibrium\ndistance scale')
+g._legend.set_title(r'$R/R_\mathrm{eq}$')
 savefig(g, 's66-errors')
 
 g = sns.catplot(
@@ -321,14 +322,15 @@ g = sns.catplot(
     height=1.4,
     margin_titles=True,
     fliersize=1,
+    linewidth=.75,
 )
 g.ax.axhline(color='black', linewidth=0.5, zorder=-1)
-g.set(ylim=(-.35, .35))
+g.set(ylim=(-.31, .21))
 g.set_xticklabels(rotation=30, ha='right')
 g.set_xlabels('')
 g.set_ylabels(r'$\Delta E_i/E_i^\mathrm{ref}$')
-g.set(yticks=[-.3, -.1, 0, .1, .3])
-g.set_yticklabels([r'$-30\%$', r'$-10\%$', '0%', '10%', '30%'])
+g.set(yticks=[-.1, 0, .1])
+g.set_yticklabels([r'$-10\%$', '0%', '10%'])
 savefig(g, 'solids-errors')
 
 results_surface = rp.setup_surface()
@@ -378,3 +380,23 @@ ax.set_ylabel(r'$E/\mathrm{eV}$')
 ax.set_xticks([3, 9])
 ax.set_yticks([-0.5, 0])
 savefig(fig, 'surface')
+
+
+def plot_cutoff(ax, cutoff):
+    ion_pot = np.linspace(0, 1, 1000)
+    alpha = np.linspace(0, 12, 1000)
+    ax.set_xlabel(r'$I/E_\mathrm{h}$')
+    ax.set_ylabel(r'$\chi$')
+    ax.set_xticks([0, 0.5, 1])
+    ax.set_yticks([0, 1, 10])
+    return ax.contourf(
+        ion_pot, alpha, cutoff(ion_pot, alpha[:, None]),
+        np.linspace(0, 1, 10)
+    )
+
+
+fig, ax = plt.subplots(figsize=(3.2, 1.8))
+cs = plot_cutoff(ax, lg_cutoff2)
+cbar = fig.colorbar(cs)
+cbar.set_ticks([0, 1])
+savefig(fig, 'cutoff-func')
