@@ -2,7 +2,7 @@
 name = "mbdvv"
 version = "0.1.1"
 description = ""
-authors = ["Jan Hermann <sci@janhermann.cz>"]
+authors = ["Jan Hermann <dev@jan.hermann.name>"]
 
 [tool.poetry.dependencies]
 python = "^3.6"
@@ -16,7 +16,7 @@ scipy = "^1.1"
 
 [tool.poetry.dev-dependencies]
 pyatsol = { path = "vendor/pyatsol", develop = true }
-knitj = { git = "https://github.com/jhrmnn/knitj.git", tag = "pub-mbd-vv" }
+knitj = { git = "https://github.com/jhrmnn/knitj.git", rev = "dbc35757a363fba0c2f3dfcba27f730b7f27c420" }
 tqdm = "^4.25"
 matplotlib = "^2.2"
 mypy = "^0.620.0"
