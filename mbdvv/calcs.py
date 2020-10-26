@@ -363,11 +363,10 @@ async def get_surface():
     tags = {
         **default_tags,
         **solids_tags,
-        'many_body_dispersion_nl': {'beta': 0.81},
+        'many_body_dispersion_dev': {
+            'grid_atoms': (1, 54, 31, 28, 27, 4)
+        }
     }
-    del tags['total_energy_method']
-    del tags['output']
-    del tags['override_illconditioning']
     tags['occupation_type'] = ('gaussian', 0.05)
     tags['charge_mix_param'] = 0.05
     tags['k_grid'] = (8, 8, 1)
@@ -391,7 +390,7 @@ async def get_surface():
         root = f'surface/{dist}'
         dft_task = await aims.task(
             geom=geom,
-            aims=aims_master,
+            aims=aims_v5,
             basis='tight',
             tags=tags,
             label=root,
