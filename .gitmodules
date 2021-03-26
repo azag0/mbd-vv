@@ -9,4 +9,4 @@
 	url = git@github.com:jhrmnn/atomic-solver.git
 [submodule "mbd-vv-pub"]
 	path = pub
-	url = git@github.com:jhrmnn/mbd-vv-pub.git
+	url = https://git.overleaf.com/5d8faa15358aab0001ad4850
